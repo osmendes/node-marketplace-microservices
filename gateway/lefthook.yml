@@ -1,0 +1,19 @@
+# Configuração do Hook de Pré-Commit
+pre-commit:
+  parallel: false # Garante que ele mude a branch antes de rodar o Biome
+
+  commands:
+    # 1º Comando: Bloqueio de Branches protegidas chamando seu arquivo JS
+    check-branch:
+      run: node check-branch.js
+
+    # 2º Comando: Validação super rápida do Biome nos arquivos modificados
+    biome-lint:
+      glob: "*.{js,ts,cjs,mjs,json}"
+      run: pnpm biome check --write --no-errors-on-unmatched {staged_files}
+
+# Configuração do Hook de Mensagem de Commit
+commit-msg:
+  commands:
+    commitlint:
+      run: pnpm commitlint --edit {1}

@@ -1,0 +1,33 @@
+
+services:
+  checkout-db:
+    image: docker.io/library/postgres:18
+    container_name: checkout-db
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: checkout_db
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+      PGDATA: /var/lib/postgresql/data/pgdata
+    ports:
+      - "5434:5432"
+    volumes:
+      - checkout_db_data:/var/lib/postgresql/data
+    healthcheck:
+      test:
+        - CMD-SHELL
+        - pg_isready -U "$${POSTGRES_USER}" -d "$${POSTGRES_DB}"
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
+    networks:
+      - checkout-network
+
+volumes:
+  checkout_db_data:
+    name: checkout_db_data
+
+networks:
+  checkout-network:
+    driver: bridge

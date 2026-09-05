@@ -1,0 +1,24 @@
+name: messaging-service
+
+services:
+  rabbitmq:
+    image: rabbitmq:4.3.2-management
+    container_name: marketplace-rabbitmq
+    environment:
+      # MUDAR EM PRODUÇÃO
+      RABBITMQ_DEFAULT_USER: admin
+      RABBITMQ_DEFAULT_PASS: admin
+    ports:
+      - "5672:5672"   # AMQP
+      - "15672:15672" # Management UI
+    volumes:
+      - rabbitmq_data:/var/lib/rabbitmq
+    restart: unless-stopped
+    healthcheck:
+      test: rabbitmq-diagnostics -q ping
+      interval: 30s
+      timeout: 10s
+      retries: 5
+
+volumes:
+  rabbitmq_data:
