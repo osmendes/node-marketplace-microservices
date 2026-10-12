@@ -1,6 +1,6 @@
-import { Injectable, Logger } from '@nestjs/common';
-import { PaymentOrderMessage } from '../payment-queue.interface';
-import { RabbitmqService } from '../rabbitmq/rabbitmq.service';
+import { Injectable, Logger } from "@nestjs/common";
+import { PaymentOrderMessage } from "../payment-queue.interface";
+import { RabbitmqService } from "../rabbitmq/rabbitmq.service";
 
 export interface DLQMessage {
   content: PaymentOrderMessage;
@@ -29,9 +29,9 @@ export interface DLQStats {
 export class DlqService {
   private readonly logger = new Logger(DlqService.name);
 
-  private readonly DLQ_NAME = 'payment_queue.dlq';
-  private readonly EXCHANGE = 'payment';
-  private readonly ROUTING_KEY = 'payment.order';
+  private readonly DLQ_NAME = "payment_queue.dlq";
+  private readonly EXCHANGE = "payment";
+  private readonly ROUTING_KEY = "payment.order";
 
   constructor(private readonly rabbitmqService: RabbitmqService) {}
 
@@ -39,7 +39,7 @@ export class DlqService {
   async getStats(): Promise<DLQStats> {
     const channel = this.rabbitmqService.getChannel();
     if (!channel) {
-      throw new Error('RabbitMQ channel not available');
+      throw new Error("RabbitMQ channel not available");
     }
 
     const queueInfo = await channel.checkQueue(this.DLQ_NAME);
@@ -56,7 +56,7 @@ export class DlqService {
   async peekMessages(limit: number = 10): Promise<DLQMessage[]> {
     const channel = this.rabbitmqService.getChannel();
     if (!channel) {
-      throw new Error('RabbitMQ channel not available');
+      throw new Error("RabbitMQ channel not available");
     }
 
     const messages: DLQMessage[] = [];
@@ -70,18 +70,16 @@ export class DlqService {
       }
 
       try {
-        const content = JSON.parse(
-          msg.content.toString(),
-        ) as PaymentOrderMessage;
+        const content = JSON.parse(msg.content.toString()) as PaymentOrderMessage;
 
-        const xDeath = msg.properties.headers?.['x-death'] as
+        const xDeath = msg.properties.headers?.["x-death"] as
           | Array<{
               reason: string;
               queue: string;
               time: { getTime: () => number };
               count: number;
               exchange: string;
-              'routing-keys': string[];
+              "routing-keys": string[];
             }>
           | undefined;
 
@@ -92,12 +90,12 @@ export class DlqService {
               time: new Date(xDeath[0].time?.getTime?.() || Date.now()),
               count: xDeath[0].count,
               exchange: xDeath[0].exchange,
-              routingKeys: xDeath[0]['routing-keys'],
+              routingKeys: xDeath[0]["routing-keys"],
             }
           : undefined;
 
         const headers =
-          msg.properties.headers && typeof msg.properties.headers === 'object'
+          msg.properties.headers && typeof msg.properties.headers === "object"
             ? (msg.properties.headers as Record<string, unknown>)
             : undefined;
 
@@ -114,7 +112,7 @@ export class DlqService {
         channel.nack(msg, false, true);
       } catch (error) {
         channel.nack(msg, false, true);
-        this.logger.error('Failed to parse DLQ message:', error);
+        this.logger.error("Failed to parse DLQ message:", error);
       }
     }
     return messages;
@@ -125,7 +123,7 @@ export class DlqService {
   async reprocessMessage(orderId: string): Promise<boolean> {
     const channel = this.rabbitmqService.getChannel();
     if (!channel) {
-      throw new Error('RabbitMQ channel not available');
+      throw new Error("RabbitMQ channel not available");
     }
 
     const stats = await this.getStats();
@@ -137,15 +135,9 @@ export class DlqService {
       if (!msg) break;
 
       try {
-        const content = JSON.parse(
-          msg.content.toString(),
-        ) as PaymentOrderMessage;
+        const content = JSON.parse(msg.content.toString()) as PaymentOrderMessage;
         if (content.orderId === orderId) {
-          await this.rabbitmqService.publishMessage(
-            this.EXCHANGE,
-            this.ROUTING_KEY,
-            content,
-          );
+          await this.rabbitmqService.publishMessage(this.EXCHANGE, this.ROUTING_KEY, content);
           // Remove da DLQ (ack)
           channel.ack(msg);
           found = true;
@@ -158,7 +150,7 @@ export class DlqService {
         }
       } catch (error) {
         channel.nack(msg, false, true);
-        this.logger.error('Failed to process DLQ message:', error);
+        this.logger.error("Failed to process DLQ message:", error);
       }
     }
     return found;
@@ -168,7 +160,7 @@ export class DlqService {
   async reprocessAll(): Promise<{ processed: number; failed: number }> {
     const channel = this.rabbitmqService.getChannel();
     if (!channel) {
-      throw new Error('RabbitMQ channel not available');
+      throw new Error("RabbitMQ channel not available");
     }
 
     const stats = await this.getStats();
@@ -183,16 +175,10 @@ export class DlqService {
       if (!msg) break;
 
       try {
-        const content = JSON.parse(
-          msg.content.toString(),
-        ) as PaymentOrderMessage;
+        const content = JSON.parse(msg.content.toString()) as PaymentOrderMessage;
 
         // Republica na fila principal
-        await this.rabbitmqService.publishMessage(
-          this.EXCHANGE,
-          this.ROUTING_KEY,
-          content,
-        );
+        await this.rabbitmqService.publishMessage(this.EXCHANGE, this.ROUTING_KEY, content);
 
         // Remove da DLQ
         channel.ack(msg);
@@ -203,13 +189,11 @@ export class DlqService {
         // Falhou, mantém na DLQ
         channel.nack(msg, false, true);
         failed++;
-        this.logger.error('Failed to reprocess message:', error);
+        this.logger.error("Failed to reprocess message:", error);
       }
     }
 
-    this.logger.log(
-      `Reprocess complete: ${processed} processed, ${failed} failed`,
-    );
+    this.logger.log(`Reprocess complete: ${processed} processed, ${failed} failed`);
 
     return { processed, failed };
   }
@@ -217,7 +201,7 @@ export class DlqService {
   async discardMessage(orderId: string): Promise<boolean> {
     const channel = this.rabbitmqService.getChannel();
     if (!channel) {
-      throw new Error('RabbitMQ channel not available');
+      throw new Error("RabbitMQ channel not available");
     }
 
     const stats = await this.getStats();
@@ -229,9 +213,7 @@ export class DlqService {
       if (!msg) break;
 
       try {
-        const content = JSON.parse(
-          msg.content.toString(),
-        ) as PaymentOrderMessage;
+        const content = JSON.parse(msg.content.toString()) as PaymentOrderMessage;
 
         if (content.orderId === orderId) {
           channel.ack(msg);
@@ -253,7 +235,7 @@ export class DlqService {
   async purgeAll(): Promise<number> {
     const channel = this.rabbitmqService.getChannel();
     if (!channel) {
-      throw new Error('RabbitMQ channel not available');
+      throw new Error("RabbitMQ channel not available");
     }
 
     const result = await channel.purgeQueue(this.DLQ_NAME);

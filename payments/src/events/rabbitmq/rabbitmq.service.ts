@@ -1,11 +1,6 @@
-import {
-  Injectable,
-  Logger,
-  OnModuleDestroy,
-  OnModuleInit,
-} from '@nestjs/common';
-import * as amqp from 'amqplib';
-import { ConfigService } from '@nestjs/config';
+import { Injectable, Logger, OnModuleDestroy, OnModuleInit } from "@nestjs/common";
+import { ConfigService } from "@nestjs/config";
+import * as amqp from "amqplib";
 
 @Injectable()
 export class RabbitmqService implements OnModuleInit, OnModuleDestroy {
@@ -25,36 +20,30 @@ export class RabbitmqService implements OnModuleInit, OnModuleDestroy {
 
   private async connect() {
     try {
-      const rabbitmqUrl = this.configService.get<string>(
-        'RABBITMQ_URL',
-        'amqp://admin:admin@localhost:5672',
-      );
+      const rabbitmqUrl = this.configService.get<string>("RABBITMQ_URL", "amqp://admin:admin@localhost:5672");
 
       this.connection = await amqp.connect(rabbitmqUrl);
       this.channel = await this.connection.createChannel();
-      this.logger.log('Connected to RabbitMQ successfully');
+      this.logger.log("Connected to RabbitMQ successfully");
 
       // Event listeners para monitorar a conexão
-      this.connection.on('error', (err) => {
-        this.logger.error('RabbitMQ connection error:', err);
+      this.connection.on("error", (err) => {
+        this.logger.error("RabbitMQ connection error:", err);
       });
 
-      this.connection.on('close', () => {
-        this.logger.warn('RabbitMQ connection closed');
+      this.connection.on("close", () => {
+        this.logger.warn("RabbitMQ connection closed");
       });
 
-      this.connection.on('blocked', (reason) => {
-        this.logger.warn('RabbitMQ connection blocked', reason);
+      this.connection.on("blocked", (reason) => {
+        this.logger.warn("RabbitMQ connection blocked", reason);
       });
 
-      this.connection.on('unblocked', () => {
-        this.logger.log('RabbitMQ connection unblocked');
+      this.connection.on("unblocked", () => {
+        this.logger.log("RabbitMQ connection unblocked");
       });
     } catch (error) {
-      this.logger.error(
-        'Failed to connect to RabbitMQ, continuing without message queue:',
-        error,
-      );
+      this.logger.error("Failed to connect to RabbitMQ, continuing without message queue:", error);
     }
   }
 
@@ -64,9 +53,7 @@ export class RabbitmqService implements OnModuleInit, OnModuleDestroy {
         return true;
       }
 
-      this.logger.log(
-        `Waiting for RabbitMQ connection... (attempt ${attempt}/${maxAttempts})`,
-      );
+      this.logger.log(`Waiting for RabbitMQ connection... (attempt ${attempt}/${maxAttempts})`);
 
       await new Promise((resolve) => setTimeout(resolve, delayMs));
     }
@@ -77,15 +64,15 @@ export class RabbitmqService implements OnModuleInit, OnModuleDestroy {
     try {
       if (this.channel) {
         await this.channel.close();
-        this.logger.log('RabbitMQ channel closed');
+        this.logger.log("RabbitMQ channel closed");
       }
 
       if (this.connection) {
         await this.connection.close();
-        this.logger.log('Disconnected from RabbitMQ');
+        this.logger.log("Disconnected from RabbitMQ");
       }
     } catch (error) {
-      this.logger.error('Error disconnecting from RabbitMQ:', error);
+      this.logger.error("Error disconnecting from RabbitMQ:", error);
     }
   }
 
@@ -97,34 +84,23 @@ export class RabbitmqService implements OnModuleInit, OnModuleDestroy {
     return this.connection;
   }
 
-  async publishMessage(
-    exchange: string,
-    routingKey: string,
-    message: any,
-  ): Promise<void> {
+  async publishMessage(exchange: string, routingKey: string, message: any): Promise<void> {
     try {
       if (!this.channel) {
-        this.logger.warn(
-          'RabbitMQ channel not available, skipping message publish',
-        );
+        this.logger.warn("RabbitMQ channel not available, skipping message publish");
         return;
       }
 
-      await this.channel.assertExchange(exchange, 'topic', { durable: true });
+      await this.channel.assertExchange(exchange, "topic", { durable: true });
       const messageBuffer = Buffer.from(JSON.stringify(message));
-      const published = this.channel.publish(
-        exchange,
-        routingKey,
-        messageBuffer,
-        {
-          persistent: true,
-          timestamp: Date.now(),
-          contentType: 'application/json',
-        },
-      );
+      const published = this.channel.publish(exchange, routingKey, messageBuffer, {
+        persistent: true,
+        timestamp: Date.now(),
+        contentType: "application/json",
+      });
 
       if (!published) {
-        throw new Error('Failed to publish message to RabbitMQ');
+        throw new Error("Failed to publish message to RabbitMQ");
       }
 
       this.logger.log(`Message published to ${exchange}:${routingKey}`);
@@ -142,26 +118,25 @@ export class RabbitmqService implements OnModuleInit, OnModuleDestroy {
     options: {
       maxRetries?: number; // Máximo de tentativas (padrão: 3)
       retryDelayMs?: number; // Delay entre retries (padrão: 30000ms)
-    } = {}
+    } = {},
   ): Promise<void> {
-
     const maxRetries = options.maxRetries ?? 3;
     const retryDelayMs = options.retryDelayMs ?? 30000; // 30 segundos
 
     try {
       if (!this.channel) {
-        throw new Error('RabbitMQ channel not available');
+        throw new Error("RabbitMQ channel not available");
       }
 
-      await this.channel.assertExchange(exchange, 'topic', { durable: true });
+      await this.channel.assertExchange(exchange, "topic", { durable: true });
 
       const retryExchange = `${exchange}.retry.dlx`;
-      await this.channel.assertExchange(retryExchange, 'topic', {
+      await this.channel.assertExchange(retryExchange, "topic", {
         durable: true,
       });
 
       const dlxExchange = `${exchange}.dlx`;
-      await this.channel.assertExchange(dlxExchange, 'topic', {
+      await this.channel.assertExchange(dlxExchange, "topic", {
         durable: true,
       });
 
@@ -169,14 +144,13 @@ export class RabbitmqService implements OnModuleInit, OnModuleDestroy {
       await this.channel.assertQueue(dlqName, {
         durable: true,
         arguments: {
-          'x-message-ttl': 604800000, // 7 dias para análise
+          "x-message-ttl": 604800000, // 7 dias para análise
         },
       });
 
       const rountingKeyDlq: string = `${routingKey}.dlq`;
 
       await this.channel.bindQueue(dlqName, dlxExchange, rountingKeyDlq);
-
 
       // Retry
       const routingKeyRetry = `${routingKey}.retry`;
@@ -185,27 +159,23 @@ export class RabbitmqService implements OnModuleInit, OnModuleDestroy {
       await this.channel.assertQueue(retryQueueName, {
         durable: true,
         arguments: {
-          'x-message-ttl': retryDelayMs,
-          'x-dead-letter-exchange': exchange,
-          'x-dead-letter-routing-key': routingKey,
+          "x-message-ttl": retryDelayMs,
+          "x-dead-letter-exchange": exchange,
+          "x-dead-letter-routing-key": routingKey,
         },
       });
 
-      await this.channel.bindQueue(
-        retryQueueName,
-        retryExchange,
-        routingKeyRetry,
-      );
+      await this.channel.bindQueue(retryQueueName, retryExchange, routingKeyRetry);
 
       // Main queue
 
       const queue = await this.channel.assertQueue(queueName, {
         durable: true,
         arguments: {
-          'x-message-ttl': 86400000,
-          'x-max-length': 10000,
-          'x-dead-letter-exchange': retryExchange,
-          'x-dead-letter-routing-key': routingKeyRetry,
+          "x-message-ttl": 86400000,
+          "x-max-length": 10000,
+          "x-dead-letter-exchange": retryExchange,
+          "x-dead-letter-routing-key": routingKeyRetry,
         },
       });
 
@@ -223,28 +193,24 @@ export class RabbitmqService implements OnModuleInit, OnModuleDestroy {
 
             await callback(message);
             this.channel.ack(msg);
-            this.logger.log(
-              `Message processed successfully from queue: ${queueName}`,
-            );
+            this.logger.log(`Message processed successfully from queue: ${queueName}`);
           } catch (error) {
             const retryCount = this.getRetryCount(msg);
 
             if (retryCount < maxRetries) {
               this.logger.warn(
                 `Processing failed (attempt ${retryCount + 1}/${maxRetries + 1}). ` +
-                `Retrying in ${retryDelayMs / 1000}s...`,
+                  `Retrying in ${retryDelayMs / 1000}s...`,
               );
               this.channel.nack(msg, false, false);
             } else {
               this.logger.error(`Max retries (${maxRetries}) exceeded. Sending to DLQ.`);
 
               // Publica diretamente na DLQ (bypass da retry queue)
-              this.channel.publish(
-                dlxExchange,
-                `${routingKey}.dlq`,
-                msg.content,
-                { persistent: true, headers: msg.properties.headers }
-              );
+              this.channel.publish(dlxExchange, `${routingKey}.dlq`, msg.content, {
+                persistent: true,
+                headers: msg.properties.headers,
+              });
               this.channel.ack(msg); // Remove da fila principal
             }
           }
@@ -262,14 +228,14 @@ export class RabbitmqService implements OnModuleInit, OnModuleDestroy {
   // O RabbitMQ adiciona esse header automaticamente
 
   private getRetryCount(msg: amqp.ConsumeMessage): number {
-    const xDeath = msg.properties.headers?.['x-death'] as | Array<{ count: number; queue: string; }> | undefined;
+    const xDeath = msg.properties.headers?.["x-death"] as Array<{ count: number; queue: string }> | undefined;
 
     if (!xDeath || xDeath.length === 0) {
       return 0;
     }
 
     return xDeath
-      .filter((death) => !death.queue.endsWith('.retry'))
+      .filter((death) => !death.queue.endsWith(".retry"))
       .reduce((sum, death) => sum + (death.count || 0), 0);
   }
 }

@@ -13,5 +13,5 @@ export interface PaymentOrderMessage {
   metadata?: {
     service: string;
     timestamp: string;
-  }
+  };
 }

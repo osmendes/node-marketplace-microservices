@@ -1,6 +1,6 @@
-import { Injectable, Logger, OnModuleDestroy, OnModuleInit } from '@nestjs/common';
-import * as amqp from 'amqplib';
-import { ConfigService } from '@nestjs/config';
+import { Injectable, Logger, OnModuleDestroy, OnModuleInit } from "@nestjs/common";
+import { ConfigService } from "@nestjs/config";
+import * as amqp from "amqplib";
 
 @Injectable()
 export class RabbitmqService implements OnModuleInit, OnModuleDestroy {
@@ -8,7 +8,7 @@ export class RabbitmqService implements OnModuleInit, OnModuleDestroy {
   private connection: amqp.ChannelModel;
   private channel: amqp.Channel;
 
-  constructor(private configService: ConfigService) { }
+  constructor(private configService: ConfigService) {}
 
   async onModuleInit() {
     await this.connect();
@@ -20,33 +20,30 @@ export class RabbitmqService implements OnModuleInit, OnModuleDestroy {
 
   private async connect() {
     try {
-      const rabbitmqUrl = this.configService.get<string>(
-        'RABBITMQ_URL', 'amqp://admin:admin@localhost:5672',
-      );
+      const rabbitmqUrl = this.configService.get<string>("RABBITMQ_URL", "amqp://admin:admin@localhost:5672");
 
       this.connection = await amqp.connect(rabbitmqUrl);
       this.channel = await this.connection.createChannel();
-      this.logger.log('Connected to RabbitMQ successfully');
+      this.logger.log("Connected to RabbitMQ successfully");
 
       // Event listeners para monitorar a conexão
-      this.connection.on('error', (err) => {
-        this.logger.error('RabbitMQ connection error:', err);
+      this.connection.on("error", (err) => {
+        this.logger.error("RabbitMQ connection error:", err);
       });
 
-      this.connection.on('close', () => {
-        this.logger.warn('RabbitMQ connection closed');
+      this.connection.on("close", () => {
+        this.logger.warn("RabbitMQ connection closed");
       });
 
-      this.connection.on('blocked', (reason) => {
-        this.logger.warn('RabbitMQ connection blocked', reason);
+      this.connection.on("blocked", (reason) => {
+        this.logger.warn("RabbitMQ connection blocked", reason);
       });
 
-      this.connection.on('unblocked', () => {
-        this.logger.log('RabbitMQ connection unblocked');
+      this.connection.on("unblocked", () => {
+        this.logger.log("RabbitMQ connection unblocked");
       });
-
     } catch (error) {
-      this.logger.error('Failed to connect to RabbitMQ, continuing without message queue:', error);
+      this.logger.error("Failed to connect to RabbitMQ, continuing without message queue:", error);
     }
   }
 
@@ -54,15 +51,15 @@ export class RabbitmqService implements OnModuleInit, OnModuleDestroy {
     try {
       if (this.channel) {
         await this.channel.close();
-        this.logger.log('RabbitMQ channel closed');
+        this.logger.log("RabbitMQ channel closed");
       }
 
       if (this.connection) {
         await this.connection.close();
-        this.logger.log('Disconnected from RabbitMQ');
+        this.logger.log("Disconnected from RabbitMQ");
       }
     } catch (error) {
-      this.logger.error('Error disconnecting from RabbitMQ:', error);
+      this.logger.error("Error disconnecting from RabbitMQ:", error);
     }
   }
 
@@ -77,20 +74,20 @@ export class RabbitmqService implements OnModuleInit, OnModuleDestroy {
   async publishMessage(exchange: string, routingKey: string, message: any): Promise<void> {
     try {
       if (!this.channel) {
-        this.logger.warn('RabbitMQ channel not available, skipping message publish');
+        this.logger.warn("RabbitMQ channel not available, skipping message publish");
         return;
       }
 
-      await this.channel.assertExchange(exchange, 'topic', { durable: true });
+      await this.channel.assertExchange(exchange, "topic", { durable: true });
       const messageBuffer = Buffer.from(JSON.stringify(message));
       const published = this.channel.publish(exchange, routingKey, messageBuffer, {
         persistent: true,
         timestamp: Date.now(),
-        contentType: 'application/json'
+        contentType: "application/json",
       });
 
       if (!published) {
-        throw new Error('Failed to publish message to RabbitMQ');
+        throw new Error("Failed to publish message to RabbitMQ");
       }
 
       this.logger.log(`Message published to ${exchange}:${routingKey}`);
@@ -108,16 +105,16 @@ export class RabbitmqService implements OnModuleInit, OnModuleDestroy {
   ): Promise<void> {
     try {
       if (!this.channel) {
-        throw new Error('RabbitMQ channel not available');
+        throw new Error("RabbitMQ channel not available");
       }
 
-      await this.channel.assertExchange(exchange, 'topic', { durable: true });
+      await this.channel.assertExchange(exchange, "topic", { durable: true });
 
       const queue = await this.channel.assertQueue(queueName, {
         durable: true,
         arguments: {
-          'x-message-ttl': 86400000,
-          'x-max-length': 10000
+          "x-message-ttl": 86400000,
+          "x-max-length": 10000,
         },
       });
 
@@ -133,7 +130,7 @@ export class RabbitmqService implements OnModuleInit, OnModuleDestroy {
             this.channel.ack(msg);
             this.logger.log(`Message processed successfully from queue: ${queueName}`);
           } catch (error) {
-            this.logger.error('Error processing message:', error);
+            this.logger.error("Error processing message:", error);
             this.channel.nack(msg, false, false);
           }
         }
@@ -143,6 +140,4 @@ export class RabbitmqService implements OnModuleInit, OnModuleDestroy {
       this.logger.error(`Error subscribing to queue ${queueName}:`, error);
     }
   }
-
-
 }

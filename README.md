@@ -8,10 +8,11 @@ Este projeto contém a arquitetura de microserviços responsável por autentica�
 
 ```text
 node-marketplace-microservices/
-├── gateway/       # API Gateway (entrada única da aplicação)
-├── checkout/      # Serviço de Checkout
-├── payments/      # Serviço de Pagamentos
-└── messaging/     # Infraestrutura de mensageria (RabbitMQ)
+├── gateway/         # API Gateway (entrada única da aplicação)
+├── checkout/        # Serviço de Checkout
+├── payments/        # Serviço de Pagamentos
+├── users-service/   # Serviço de Usuários
+└── messaging/       # Infraestrutura de mensageria (RabbitMQ)
 ```
 
 Cada pasta é um serviço independente, com seu próprio `package.json`, código-fonte e configurações.
@@ -33,7 +34,7 @@ Principais responsabilidades:
 - Logging middleware
 - Swagger
 
-**Stack principal:** NestJS 11 · Biome · Vitest · Lefthook · pnpm
+**Stack principal:** NestJS 11 · Biome · Vitest · Lefthook · Bun
 
 ### 2. `checkout`
 Serviço responsável pelo fluxo de checkout.
@@ -51,7 +52,14 @@ Principais características:
 - Integração com RabbitMQ
 - Estrutura similar ao serviço de checkout
 
-### 4. `messaging`
+### 4. `users-service`
+Serviço responsável pelo gerenciamento de usuários do marketplace.
+
+Principais características:
+- NestJS + TypeORM (PostgreSQL) — scaffold em evolução
+- Porta padrão: `3000`
+
+### 5. `messaging`
 Infraestrutura de mensageria baseada em **RabbitMQ**.
 
 Contém o `compose.yaml` para subir o broker localmente com Podman/Docker.
@@ -60,19 +68,19 @@ Contém o `compose.yaml` para subir o broker localmente com Podman/Docker.
 
 ## Como desenvolver
 
-Cada serviço é independente. Para trabalhar em um deles:
+Cada serviço NestJS é independente. Para trabalhar em um deles:
 
 ```bash
 # Exemplo com o gateway
 cd gateway
-pnpm install          # ou npm / yarn, dependendo do serviço
-pnpm run start:dev
+bun install
+bun run start:dev
 ```
 
 ### Observações importantes
 
-- O **gateway** usa **pnpm** + Biome + Vitest + Lefthook.
-- Os serviços `checkout` e `payments` usam o padrão clássico do NestJS (ESLint + Prettier + Jest).
+- Os serviços NestJS (`gateway`, `checkout`, `payments`, `users-service`) usam **Bun** + **Biome** + **Vitest** + **Lefthook** + **commitlint**.
+- O Lefthook do monorepo fica na raiz (`lefthook.yml`) e aplica Biome/commitlint por serviço.
 - O serviço `messaging` é apenas a infraestrutura (RabbitMQ).
 
 ### Subindo o RabbitMQ (necessário para checkout e payments)
@@ -91,12 +99,13 @@ docker compose up -d
 | Tecnologia       | Uso                                      |
 |------------------|------------------------------------------|
 | NestJS 11        | Framework principal de todos os serviços |
-| TypeORM + PostgreSQL | Persistência (checkout e payments)   |
+| TypeORM + PostgreSQL | Persistência (checkout, payments, users) |
 | RabbitMQ         | Mensageria entre serviços                |
 | JWT + Passport   | Autenticação no Gateway                  |
-| Biome            | Linter/Formatter (Gateway)               |
-| Vitest           | Testes (Gateway)                         |
-| Jest             | Testes (Checkout e Payments)             |
+| Biome            | Linter/Formatter                         |
+| Vitest           | Testes unitários e e2e                   |
+| Lefthook         | Git hooks (pre-commit + commit-msg)      |
+| Bun              | Gerenciador de pacotes dos serviços NestJS |
 
 ---
 
@@ -104,7 +113,7 @@ docker compose up -d
 
 No futuro este repositório pode evoluir para um **monorepo** completo com:
 
-- pnpm workspaces
+- Bun workspaces
 - Turborepo
 - Código compartilhado (`packages/shared`)
 - Docker Compose unificado

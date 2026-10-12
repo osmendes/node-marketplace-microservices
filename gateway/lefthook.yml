@@ -10,10 +10,10 @@ pre-commit:
     # 2º Comando: Validação super rápida do Biome nos arquivos modificados
     biome-lint:
       glob: "*.{js,ts,cjs,mjs,json}"
-      run: pnpm biome check --write --no-errors-on-unmatched {staged_files}
+      run: bunx biome check --write --no-errors-on-unmatched {staged_files}
 
 # Configuração do Hook de Mensagem de Commit
 commit-msg:
   commands:
     commitlint:
-      run: pnpm commitlint --edit {1}
+      run: bunx commitlint --edit {1}
