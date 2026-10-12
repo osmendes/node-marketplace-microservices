@@ -1,0 +1,32 @@
+services:
+  users-db:
+    image: docker.io/library/postgres:15
+    container_name: users-db
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: users_db
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+      PGDATA: /var/lib/postgresql/data/pgdata
+    ports:
+      - "5433:5432"
+    volumes:
+      - users_db_data:/var/lib/postgresql/data
+    healthcheck:
+      test:
+        - CMD-SHELL
+        - pg_isready -U "$${POSTGRES_USER}" -d "$${POSTGRES_DB}"
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
+    networks:
+      - users-network
+
+volumes:
+  users_db_data:
+    name: users_db_data
+
+networks:
+  users-network:
+    driver: bridge
