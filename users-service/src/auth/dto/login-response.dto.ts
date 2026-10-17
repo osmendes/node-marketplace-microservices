@@ -1,4 +1,4 @@
-import type { UserResponseDto } from "./user-response.dto";
+import type { UserResponseDto } from "../../users/dto/user-response.dto";
 
 export class LoginResponseDto {
   user: UserResponseDto;
