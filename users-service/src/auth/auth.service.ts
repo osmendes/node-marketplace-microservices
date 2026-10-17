@@ -3,12 +3,13 @@ import { JwtService } from "@nestjs/jwt";
 import { InjectRepository } from "@nestjs/typeorm";
 import * as bcrypt from "bcryptjs";
 import type { Repository } from "typeorm";
+import type { UserResponseDto } from "../users/dto/user-response.dto";
 import { User } from "../users/entities/user.entity";
 import { UserStatus } from "../users/enums/user-status.enum";
+import { toPublicUser } from "../users/mappers/to-public-user";
 import type { LoginDto } from "./dto/login.dto";
 import type { LoginResponseDto } from "./dto/login-response.dto";
 import type { RegisterDto } from "./dto/register.dto";
-import type { UserResponseDto } from "./dto/user-response.dto";
 
 const BCRYPT_SALT_ROUNDS = 10;
 const INVALID_CREDENTIALS_MESSAGE = "Credenciais inválidas";
@@ -44,7 +45,7 @@ export class AuthService {
 
     const savedUser = await this.usersRepository.save(user);
 
-    return this.toPublicUser(savedUser);
+    return toPublicUser(savedUser);
   }
 
   async login(dto: LoginDto): Promise<LoginResponseDto> {
@@ -73,21 +74,8 @@ export class AuthService {
     });
 
     return {
-      user: this.toPublicUser(user),
+      user: toPublicUser(user),
       token,
-    };
-  }
-
-  private toPublicUser(user: User): UserResponseDto {
-    return {
-      id: user.id,
-      email: user.email,
-      firstName: user.firstName,
-      lastName: user.lastName,
-      role: user.role,
-      status: user.status,
-      createdAt: user.createdAt,
-      updatedAt: user.updatedAt,
     };
   }
 }
