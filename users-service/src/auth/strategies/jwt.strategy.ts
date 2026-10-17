@@ -12,6 +12,12 @@ export interface JwtPayload {
   exp?: number;
 }
 
+export interface AuthenticatedUser {
+  id: string;
+  email: string;
+  role: UserRole;
+}
+
 @Injectable()
 export class JwtStrategy extends PassportStrategy(Strategy) {
   constructor(configService: ConfigService) {
@@ -28,13 +34,13 @@ export class JwtStrategy extends PassportStrategy(Strategy) {
     });
   }
 
-  validate(payload: JwtPayload) {
+  validate(payload: JwtPayload): AuthenticatedUser {
     if (!payload?.sub || !payload.email || !payload.role) {
       throw new UnauthorizedException("Invalid token payload");
     }
 
     return {
-      userId: payload.sub,
+      id: payload.sub,
       email: payload.email,
       role: payload.role,
     };
