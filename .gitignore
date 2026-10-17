@@ -1,0 +1,31 @@
+# OS / Finder
+.DS_Store
+**/.DS_Store
+
+# Editor
+.idea/
+.vscode/
+*.swp
+*.swo
+
+# Local env
+.env
+.env.*.local
+
+# Dependencies / build outputs
+**/node_modules/
+**/dist/
+**/coverage/
+**/.turbo/
+
+# Swift / Xcode stray cache (should not live in this monorepo)
+.build/
+
+# Lefthook lives per service; ignore accidental root scaffold
+/lefthook.yml
+
+# Logs
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
