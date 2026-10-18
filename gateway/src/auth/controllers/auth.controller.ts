@@ -1,6 +1,7 @@
 import { Body, Controller, HttpCode, HttpStatus, Post } from "@nestjs/common";
 import { ApiOperation, ApiResponse, ApiTags } from "@nestjs/swagger";
 import { Throttle } from "@nestjs/throttler";
+import { Public } from "../decorators/public.decorator";
 import { LoginDto } from "../dtos/login.dto";
 import { RegisterDto } from "../dtos/register.dto";
 import { AuthService } from "../services/auth.service";
@@ -10,6 +11,7 @@ import { AuthService } from "../services/auth.service";
 export class AuthController {
   constructor(private readonly authService: AuthService) {}
 
+  @Public()
   @Post("login")
   @HttpCode(HttpStatus.OK)
   @ApiOperation({ summary: "User login" })
@@ -20,9 +22,7 @@ export class AuthController {
       type: "object",
       properties: {
         user: { type: "object" },
-        accessToken: { type: "string" },
-        sessionToken: { type: "string" },
-        expiresIn: { type: "number" },
+        token: { type: "string" },
       },
     },
   })
@@ -32,6 +32,7 @@ export class AuthController {
     return this.authService.login(loginDto);
   }
 
+  @Public()
   @Post("register")
   @HttpCode(HttpStatus.CREATED)
   @ApiOperation({ summary: "User registration" })

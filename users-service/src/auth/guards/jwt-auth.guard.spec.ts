@@ -9,19 +9,21 @@ describe("JwtAuthGuard", () => {
   let reflector: Reflector;
   let superCanActivate: ReturnType<typeof vi.fn>;
 
-  const createContext = (): ExecutionContext =>
-    ({
-      getHandler: () => vi.fn(),
-      getClass: () => vi.fn(),
-    }) as unknown as ExecutionContext;
+  const createContext = (): ExecutionContext => {
+    const handler = vi.fn();
+    const klass = vi.fn();
+
+    return {
+      getHandler: () => handler,
+      getClass: () => klass,
+    } as unknown as ExecutionContext;
+  };
 
   beforeEach(() => {
     reflector = new Reflector();
     guard = new JwtAuthGuard(reflector);
     superCanActivate = vi.fn().mockReturnValue(true);
-    vi.spyOn(Object.getPrototypeOf(JwtAuthGuard.prototype), "canActivate").mockImplementation(
-      superCanActivate,
-    );
+    vi.spyOn(Object.getPrototypeOf(JwtAuthGuard.prototype), "canActivate").mockImplementation(superCanActivate);
   });
 
   it("allows access without calling AuthGuard when route is public", () => {
@@ -30,10 +32,7 @@ describe("JwtAuthGuard", () => {
 
     const result = guard.canActivate(context);
 
-    expect(reflector.getAllAndOverride).toHaveBeenCalledWith(IS_PUBLIC_KEY, [
-      context.getHandler(),
-      context.getClass(),
-    ]);
+    expect(reflector.getAllAndOverride).toHaveBeenCalledWith(IS_PUBLIC_KEY, [context.getHandler(), context.getClass()]);
     expect(result).toBe(true);
     expect(superCanActivate).not.toHaveBeenCalled();
   });
