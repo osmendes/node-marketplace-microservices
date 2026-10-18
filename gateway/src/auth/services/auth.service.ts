@@ -1,8 +1,7 @@
 import { HttpService } from "@nestjs/axios";
 import { Injectable, UnauthorizedException } from "@nestjs/common";
-import { JwtService } from "@nestjs/jwt";
 import { firstValueFrom } from "rxjs";
-import { serviceConfig } from "src/config/gateway.config";
+import { serviceConfig } from "../../config/gateway.config";
 import { LoginDto } from "../dtos/login.dto";
 import { RegisterDto } from "../dtos/register.dto";
 
@@ -18,28 +17,48 @@ export interface UserSession {
   } | null;
 }
 
+export interface ValidatedUser {
+  userId: string;
+  email: string;
+  role: string;
+}
+
 export interface AuthResponse {
-  access_token: string;
   user: {
     id: string;
     email: string;
     firstName: string;
     lastName: string;
     role: string;
+    status?: string;
+    createdAt?: string;
+    updatedAt?: string;
   };
+  token: string;
 }
 
 @Injectable()
 export class AuthService {
-  constructor(
-    private readonly jwtService: JwtService,
-    private readonly httpService: HttpService,
-  ) {}
+  constructor(private readonly httpService: HttpService) {}
 
-  validadeJwtToken(token: string): Promise<AuthResponse> {
+  async validateJwtToken(authorizationHeader: string): Promise<ValidatedUser> {
     try {
-      return this.jwtService.verify(token);
-    } catch {
+      const { data } = await firstValueFrom(
+        this.httpService.get<ValidatedUser>(`${serviceConfig.users.url}/auth/validate-token`, {
+          headers: { Authorization: authorizationHeader },
+          timeout: serviceConfig.users.timeout,
+        }),
+      );
+
+      if (!data?.userId || !data.email || !data.role) {
+        throw new UnauthorizedException("Invalid JWT token");
+      }
+
+      return data;
+    } catch (error) {
+      if (error instanceof UnauthorizedException) {
+        throw error;
+      }
       throw new UnauthorizedException("Invalid JWT token");
     }
   }
@@ -61,7 +80,9 @@ export class AuthService {
   async login(loginDto: LoginDto): Promise<AuthResponse> {
     try {
       const { data } = await firstValueFrom(
-        this.httpService.post(`${serviceConfig.users.url}/login`, loginDto, { timeout: serviceConfig.users.timeout }),
+        this.httpService.post<AuthResponse>(`${serviceConfig.users.url}/auth/login`, loginDto, {
+          timeout: serviceConfig.users.timeout,
+        }),
       );
 
       return data;
@@ -70,7 +91,7 @@ export class AuthService {
     }
   }
 
-  async register(registerDto: RegisterDto): Promise<AuthResponse> {
+  async register(registerDto: RegisterDto): Promise<unknown> {
     try {
       const { data } = await firstValueFrom(
         this.httpService.post(`${serviceConfig.users.url}/auth/register`, registerDto, {
