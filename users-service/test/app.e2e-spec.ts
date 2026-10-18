@@ -2,7 +2,7 @@ import type { INestApplication } from "@nestjs/common";
 import { Test, type TestingModule } from "@nestjs/testing";
 import request from "supertest";
 import type { App } from "supertest/types";
-import { afterEach, beforeEach, describe, it } from "vitest";
+import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { AppModule } from "./../src/app.module";
 
 describe("AppController (e2e)", () => {
@@ -19,6 +19,15 @@ describe("AppController (e2e)", () => {
 
   it("/ (GET)", () => {
     return request(app.getHttpServer()).get("/").expect(200).expect("Hello World!");
+  });
+
+  it("/health (GET) is public and returns service status", async () => {
+    const response = await request(app.getHttpServer()).get("/health").expect(200);
+
+    expect(response.body).toEqual({
+      status: "ok",
+      service: "users-service",
+    });
   });
 
   afterEach(async () => {
