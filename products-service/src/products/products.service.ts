@@ -1,4 +1,4 @@
-import { ForbiddenException, Injectable } from "@nestjs/common";
+import { ForbiddenException, Injectable, NotFoundException } from "@nestjs/common";
 import { InjectRepository } from "@nestjs/typeorm";
 import { Repository } from "typeorm";
 import type { AuthenticatedUser } from "../auth/strategies/jwt.strategy";
@@ -27,5 +27,28 @@ export class ProductsService {
     });
 
     return this.productsRepository.save(product);
+  }
+
+  findAllActive(): Promise<Product[]> {
+    return this.productsRepository.find({
+      where: { isActive: true },
+      order: { createdAt: "DESC" },
+    });
+  }
+
+  findActiveBySellerId(sellerId: string): Promise<Product[]> {
+    return this.productsRepository.find({
+      where: { isActive: true, sellerId },
+    });
+  }
+
+  async findOneById(id: string): Promise<Product> {
+    const product = await this.productsRepository.findOne({ where: { id } });
+
+    if (!product) {
+      throw new NotFoundException("Product not found");
+    }
+
+    return product;
   }
 }
