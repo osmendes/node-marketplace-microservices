@@ -5,12 +5,13 @@ import { FallbackModule } from "src/common/fallback/fallback.module";
 import { RetryModule } from "src/common/retry/retry.module";
 import { TimeoutModule } from "src/common/timeout/timeout.module";
 import { AuthModule } from "../auth/auth.module";
+import { ProductsProxyController } from "./products-proxy.controller";
 import { ProxyService } from "./service/proxy.service";
 import { UsersProxyController } from "./users-proxy.controller";
 
 @Module({
   imports: [HttpModule, CircuitBreakerModule, FallbackModule, TimeoutModule, RetryModule, AuthModule],
-  controllers: [UsersProxyController],
+  controllers: [UsersProxyController, ProductsProxyController],
   providers: [ProxyService],
   exports: [ProxyService],
 })
