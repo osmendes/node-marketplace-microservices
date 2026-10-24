@@ -4,7 +4,7 @@ export const serviceConfig = {
     timeout: 10000,
   },
   products: {
-    url: process.env.PRODUCTS_SERVICE_URL || "http://localhost:3002",
+    url: process.env.PRODUCTS_SERVICE_URL || "http://localhost:3001",
     timeout: 10000,
   },
   checkout: {
