@@ -1,4 +1,5 @@
 import { Injectable, Logger } from "@nestjs/common";
+import { isHttpClientError } from "../http/http-error.util";
 import { RetryOptions, RetryResult } from "./retry.interface";
 
 @Injectable()
@@ -33,6 +34,11 @@ export class RetryService {
           totalTime,
         };
       } catch (error) {
+        if (isHttpClientError(error)) {
+          this.logger.debug(`Client error (4xx) on attempt ${attempt + 1}; skipping retries`);
+          throw error;
+        }
+
         lastError = error as Error;
         this.logger.warn(`Attempt ${attempt + 1} failed: ${lastError.message}`);
 

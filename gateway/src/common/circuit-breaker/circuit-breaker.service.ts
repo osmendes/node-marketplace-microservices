@@ -1,4 +1,5 @@
 import { Injectable, Logger } from "@nestjs/common";
+import { isHttpClientError } from "../http/http-error.util";
 import { CircuitBreakerOptions, CircuitBreakerState, CircuitBreakerStateEnum } from "./circuit-breaker.interface";
 
 @Injectable()
@@ -38,6 +39,11 @@ export class CircuitBreakerService {
       this.onSuccess(circuit, key);
       return result;
     } catch (error) {
+      if (isHttpClientError(error)) {
+        this.logger.debug(`Client error (4xx) for ${key}; skipping circuit failure accounting`);
+        throw error;
+      }
+
       this.onFailure(circuit, key, config);
       this.logger.error(`Circuit breaker failure for ${key}:`, error.message);
       if (fallback) {
