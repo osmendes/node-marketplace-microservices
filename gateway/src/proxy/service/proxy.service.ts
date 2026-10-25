@@ -108,10 +108,11 @@ export class ProxyService {
           });
         }
 
-        return this.defaultFallbackService.createDefaultFallback("products", "Product service unavailable");
+        // createDefaultFallback(defaultResponse, serviceName) — never pass the service name as the response body
+        return this.defaultFallbackService.createErrorFallback("products", "Product service unavailable");
       case "checkout":
       case "payments":
-        return this.defaultFallbackService.createDefaultFallback(serviceName, `${serviceName} service unavailable`);
+        return this.defaultFallbackService.createErrorFallback(serviceName, `${serviceName} service unavailable`);
       default:
         return this.defaultFallbackService.createErrorFallback(serviceName, "Service unavailable");
     }
