@@ -32,43 +32,6 @@ describe("AuthService", () => {
     expect(service).toBeDefined();
   });
 
-  it("login posts to /auth/login on users-service", async () => {
-    const payload = { email: "a@example.com", password: "secret1" };
-    const response = {
-      user: { id: "1", email: payload.email, firstName: "A", lastName: "B", role: "buyer" },
-      token: "jwt-token",
-    };
-
-    httpService.post.mockReturnValue(of({ data: response }));
-
-    await expect(service.login(payload)).resolves.toEqual(response);
-    expect(httpService.post).toHaveBeenCalledWith(
-      "http://localhost:3000/auth/login",
-      payload,
-      expect.objectContaining({ timeout: 10000 }),
-    );
-  });
-
-  it("register posts to /auth/register on users-service", async () => {
-    const payload = {
-      email: "a@example.com",
-      password: "secret1",
-      firstName: "Ada",
-      lastName: "Lovelace",
-      role: "buyer" as const,
-    };
-    const response = { id: "1", ...payload, status: "active" };
-
-    httpService.post.mockReturnValue(of({ data: response }));
-
-    await expect(service.register(payload)).resolves.toEqual(response);
-    expect(httpService.post).toHaveBeenCalledWith(
-      "http://localhost:3000/auth/register",
-      payload,
-      expect.objectContaining({ timeout: 10000 }),
-    );
-  });
-
   it("validateJwtToken calls users-service /auth/validate-token with Authorization", async () => {
     const validated = { userId: "uuid", email: "a@example.com", role: "buyer" };
     httpService.get.mockReturnValue(of({ data: validated }));

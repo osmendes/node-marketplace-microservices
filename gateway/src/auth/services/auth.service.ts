@@ -2,8 +2,6 @@ import { HttpService } from "@nestjs/axios";
 import { Injectable, UnauthorizedException } from "@nestjs/common";
 import { firstValueFrom } from "rxjs";
 import { serviceConfig } from "../../config/gateway.config";
-import { LoginDto } from "../dtos/login.dto";
-import { RegisterDto } from "../dtos/register.dto";
 
 export interface UserSession {
   valid: boolean;
@@ -21,20 +19,6 @@ export interface ValidatedUser {
   userId: string;
   email: string;
   role: string;
-}
-
-export interface AuthResponse {
-  user: {
-    id: string;
-    email: string;
-    firstName: string;
-    lastName: string;
-    role: string;
-    status?: string;
-    createdAt?: string;
-    updatedAt?: string;
-  };
-  token: string;
 }
 
 @Injectable()
@@ -74,34 +58,6 @@ export class AuthService {
       return data;
     } catch {
       throw new UnauthorizedException("Invalid session token");
-    }
-  }
-
-  async login(loginDto: LoginDto): Promise<AuthResponse> {
-    try {
-      const { data } = await firstValueFrom(
-        this.httpService.post<AuthResponse>(`${serviceConfig.users.url}/auth/login`, loginDto, {
-          timeout: serviceConfig.users.timeout,
-        }),
-      );
-
-      return data;
-    } catch {
-      throw new UnauthorizedException("Invalid login credentials");
-    }
-  }
-
-  async register(registerDto: RegisterDto): Promise<unknown> {
-    try {
-      const { data } = await firstValueFrom(
-        this.httpService.post(`${serviceConfig.users.url}/auth/register`, registerDto, {
-          timeout: serviceConfig.users.timeout,
-        }),
-      );
-
-      return data;
-    } catch {
-      throw new UnauthorizedException("Invalid login credentials");
     }
   }
 }
