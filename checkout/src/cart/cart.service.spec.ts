@@ -86,6 +86,8 @@ describe("CartService", () => {
       status: CartStatus.ACTIVE,
       total: "100.50",
       items: [],
+      createdAt: new Date(),
+      updatedAt: new Date(),
     } as Cart;
 
     cartRepository.findOne.mockResolvedValue(cart);
@@ -239,6 +241,8 @@ describe("CartService", () => {
       status: CartStatus.ACTIVE,
       total: "0.00",
       items: [],
+      createdAt: new Date(),
+      updatedAt: new Date(),
     } as Cart);
 
     await expect(service.removeItem(userId, itemId)).rejects.toBeInstanceOf(NotFoundException);
