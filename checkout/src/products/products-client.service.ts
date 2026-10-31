@@ -4,6 +4,8 @@ import { ConfigService } from "@nestjs/config";
 import { AxiosError } from "axios";
 import { firstValueFrom } from "rxjs";
 
+const TRAILING_SLASH = /\/$/;
+
 export interface ProductsServiceProduct {
   id: string;
   name: string;
@@ -30,7 +32,7 @@ export class ProductsClientService {
       throw new Error("PRODUCTS_SERVICE_URL is not defined");
     }
 
-    this.baseUrl = baseUrl.replace(/\/$/, "");
+    this.baseUrl = baseUrl.replace(TRAILING_SLASH, "");
   }
 
   async getProduct(productId: string): Promise<ProductsServiceProduct> {
