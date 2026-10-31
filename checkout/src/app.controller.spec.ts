@@ -1,7 +1,8 @@
 import { Test, type TestingModule } from "@nestjs/testing";
-import { beforeEach, describe, expect, it } from "vitest";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 import { AppController } from "./app.controller";
 import { AppService } from "./app.service";
+import { PaymentQueueService } from "./events/payment-queue/payment-queue.service";
 
 describe("AppController", () => {
   let appController: AppController;
@@ -9,7 +10,16 @@ describe("AppController", () => {
   beforeEach(async () => {
     const app: TestingModule = await Test.createTestingModule({
       controllers: [AppController],
-      providers: [AppService],
+      providers: [
+        AppService,
+        {
+          provide: PaymentQueueService,
+          useValue: {
+            publishPaymentOrder: vi.fn(),
+            publishPaymentOrderSafe: vi.fn(),
+          },
+        },
+      ],
     }).compile();
 
     appController = app.get<AppController>(AppController);
