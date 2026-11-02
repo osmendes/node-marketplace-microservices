@@ -13,6 +13,7 @@ import { RetryModule } from "./common/retry/retry.module";
 import { TimeoutModule } from "./common/timeout/timeout.module";
 import { CustomThrottlerGuard } from "./guards/throttler.guard";
 import { HealthModule } from "./health/health.module";
+import { MetricsModule } from "./metrics/metrics.module";
 import { LogginMiddleware } from "./middleware/loggin/loggin.middleware";
 import { MiddlewareModule } from "./middleware/middleware.module";
 import { PaymentsModule } from "./payments/payments.module";
@@ -21,6 +22,7 @@ import { ProxyModule } from "./proxy/proxy.module";
 @Module({
   imports: [
     ConfigModule.forRoot({ isGlobal: true }),
+    MetricsModule,
     ThrottlerModule.forRootAsync({
       imports: [ConfigModule],
       useFactory: (configService: ConfigService) => [
