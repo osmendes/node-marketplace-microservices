@@ -5,6 +5,7 @@ import { ThrottlerModule } from "@nestjs/throttler";
 import { AppController } from "./app.controller";
 import { AppService } from "./app.service";
 import { AuthModule } from "./auth/auth.module";
+import { CheckoutModule } from "./checkout/checkout.module";
 import { CircuitBreakerModule } from "./common/circuit-breaker/circuit-breaker.module";
 import { FallbackModule } from "./common/fallback/fallback.module";
 import { HealthCheckModule } from "./common/health/health-check.module";
@@ -41,6 +42,7 @@ import { ProxyModule } from "./proxy/proxy.module";
       inject: [ConfigService],
     }),
     ProxyModule,
+    CheckoutModule,
     MiddlewareModule,
     AuthModule,
     HealthModule,
