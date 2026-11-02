@@ -1,10 +1,8 @@
-import { Controller, Get, Logger } from "@nestjs/common";
+import { Controller, Get } from "@nestjs/common";
 import { ConsumerMetrics, PaymentConsumerService } from "../payment-consumer/payment-consumer.service";
 
-@Controller("metrics")
-export class MetricsController {
-  private readonly logger = new Logger(MetricsController.name);
-
+@Controller("consumer-metrics")
+export class ConsumerMetricsController {
   constructor(private readonly paymentConsumerService: PaymentConsumerService) {}
 
   @Get()
@@ -15,11 +13,11 @@ export class MetricsController {
   } {
     const metrics = this.paymentConsumerService.getMetrics();
 
-    // Calcula taxa de sucesso
     const successRate =
-      metrics.totalProcessed > 0 ? ((metrics.totalSuccess / metrics.totalProcessed) * 100).toFixed(2) + "%" : "0%";
+      metrics.totalProcessed > 0
+        ? `${((metrics.totalSuccess / metrics.totalProcessed) * 100).toFixed(2)}%`
+        : "0%";
 
-    // Calcula uptime
     const uptime = this.calculateUptime(metrics.startedAt);
 
     return {
@@ -41,7 +39,7 @@ export class MetricsController {
     if (days > 0) {
       return `${days}d ${hours % 24}h ${minutes % 60}m`;
     } else if (hours > 0) {
-      return `${hours}h ${minutes % 60}m ${seconds % 60}s`;
+      return `${hours}h ${minutes % 60}m`;
     } else if (minutes > 0) {
       return `${minutes}m ${seconds % 60}s`;
     } else {
