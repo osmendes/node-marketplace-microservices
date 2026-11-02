@@ -12,9 +12,11 @@ observability-stack/
 ├── README.md
 ├── docs/
 │   └── specs/
-│       └── grafana-dashboards-and-business-metrics.md
+│       ├── grafana-dashboards-and-business-metrics.md
+│       └── prometheus-alerting-rules.md
 ├── prometheus/
-│   └── prometheus.yml
+│   ├── prometheus.yml
+│   └── alert.rules.yml
 └── grafana/
     └── provisioning/
         ├── datasources/
@@ -93,7 +95,7 @@ Os dashboards são versionados em `grafana/provisioning/dashboards/` e carregado
 
 | Dashboard | UID | Conteúdo |
 |---|---|---|
-| **Marketplace Overview** | `marketplace-overview` | Status UP/DOWN, throughput, erros 4xx/5xx, latência P95, memória e métricas de negócio |
+| **Marketplace Overview** | `marketplace-overview` | Status UP/DOWN, throughput, erros 4xx/5xx, latência P95, memória, métricas de negócio e painel **Alertas ativos** |
 | **Service Details** | `service-details` | Variável `$service`; método RED por rota; top rotas; status codes; CPU, memória e event loop |
 
 URLs diretas (com a stack no ar):
@@ -112,9 +114,37 @@ Além das métricas HTTP (`http_requests_total`, `http_request_duration_seconds`
 
 A tabela PromQL de referência está na SPEC `docs/specs/grafana-dashboards-and-business-metrics.md`.
 
+## Alerting rules (Prometheus)
+
+Arquivo versionado: `prometheus/alert.rules.yml` (montado em `/etc/prometheus/alert.rules.yml` e referenciado em `prometheus.yml` via `rule_files`).
+
+| Alerta | Condição | `for` | Severidade |
+|---|---|---|---|
+| `ServiceDown` | `up == 0` nos jobs dos cinco serviços | `30s` | `critical` |
+| `HighErrorRate` | taxa 5xx / total `> 0.10` por `job` (rate ~5m) | `1m` | `warning` |
+| `HighLatencyP95` | P95 de `http_request_duration_seconds` `> 2s` por `job` | `1m` | `warning` |
+| `HighMemoryUsage` | `process_resident_memory_bytes > 512MB` por `job` | `2m` | `warning` |
+| `NoPaymentsProcessed` | `increase(payments_processed_total[5m]) == 0` | `5m` | `info` |
+| `HighPaymentRejectionRate` | rejeitados/processados `> 0.5` (com processados `> 0`) | `2m` | `warning` |
+
+**Nota:** `NoPaymentsProcessed` é severidade `info` e pode disparar em ambiente ocioso (sem pagamentos) — comportamento esperado nesta aula.
+
+O Overview inclui o painel **Alertas ativos** (`ALERTS{alertstate="firing"}`).
+
+### Como validar
+
+1. Subir/recarregar a stack (`podman compose up -d` ou reload do Prometheus).
+2. UI Prometheus → **Alerts** (http://localhost:9090/alerts) ou API:
+   - `curl -s http://localhost:9090/api/v1/rules | jq '.data.groups[].rules[].name'`
+   - `curl -s 'http://localhost:9090/-/reload' -X POST` (lifecycle já habilitado)
+3. Parar um serviço scrapeado e observar `ServiceDown` em pending/firing após ~30s.
+4. Grafana Overview → painel **Alertas ativos**: http://localhost:3010/d/marketplace-overview/marketplace-overview
+
+**Fora de escopo:** notificações externas (Slack, e-mail, webhooks, contact points do Alertmanager/Grafana). A avaliação das rules no Prometheus + visualização no Grafana é suficiente nesta entrega.
+
 ## Fora desta entrega
 
-- Alerting (Alertmanager / regras / contact points do Grafana) — próxima SPEC
+- Notificações externas / receivers Alertmanager
 - Exporters de banco de dados ou RabbitMQ
 - Loki, Jaeger ou outras ferramentas além de Prometheus e Grafana
 
