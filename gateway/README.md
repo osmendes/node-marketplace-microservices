@@ -23,7 +23,12 @@
 
 ## Description
 
-[Nest](https://github.com/nestjs/nest) framework TypeScript starter repository.
+[Nest](https://github.com/nestjs/nest) framework TypeScript starter repository (API Gateway do marketplace).
+
+### Health
+
+- `GET /health` — health Terminus do gateway: verifica via HTTP os quatro serviços downstream (`users`, `products`, `checkout`, `payments`). Sucesso **200** só com todos saudáveis; falha tipicamente **503**.
+- `GET /health/services` — visão agregada auxiliar (custom); a fonte de verdade operacional de dependências é `GET /health`.
 
 ## Project setup
 
