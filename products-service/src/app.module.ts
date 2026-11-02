@@ -7,12 +7,14 @@ import { AppService } from "./app.service";
 import { AuthModule } from "./auth/auth.module";
 import { JwtAuthGuard } from "./auth/guards/jwt-auth.guard";
 import { databaseConfig } from "./config/database.config";
+import { MetricsModule } from "./metrics/metrics.module";
 import { ProductsModule } from "./products/products.module";
 
 @Module({
   imports: [
     ConfigModule.forRoot({ isGlobal: true }),
     TypeOrmModule.forRoot(databaseConfig),
+    MetricsModule,
     ProductsModule,
     AuthModule,
   ],
