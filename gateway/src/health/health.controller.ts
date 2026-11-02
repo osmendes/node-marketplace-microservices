@@ -1,26 +1,47 @@
 import { Controller, Get, Param } from "@nestjs/common";
 import { ApiOperation, ApiResponse } from "@nestjs/swagger";
+import { HealthCheck, HttpHealthIndicator, HealthCheckService as TerminusHealthCheckService } from "@nestjs/terminus";
+import { SkipThrottle } from "@nestjs/throttler";
 import { HealthCheckService } from "src/common/health/health-check.service";
+import { serviceConfig } from "src/config/gateway.config";
 import { HealthService } from "./health.service";
 
+const HEALTH_PING_TIMEOUT_MS = 3000;
+
+@SkipThrottle()
 @Controller("health")
 export class HealthController {
   constructor(
     private readonly healthService: HealthService,
     private readonly healthCheckService: HealthCheckService,
+    private readonly terminusHealth: TerminusHealthCheckService,
+    private readonly http: HttpHealthIndicator,
   ) {}
 
   @Get()
-  @ApiOperation({ summary: "Health check do gateway" })
-  @ApiResponse({ status: 200, description: "Gateway está saudável" })
-  async getHealth() {
-    return {
-      status: "ok",
-      timestamp: new Date().toISOString(),
-      uptime: process.uptime(),
-      memory: process.memoryUsage(),
-      version: process.env.npm_package_version || "1.0.0",
-    };
+  @HealthCheck()
+  @ApiOperation({ summary: "Health check do gateway (Terminus + downstream HTTP)" })
+  @ApiResponse({ status: 200, description: "Gateway e downstream saudáveis" })
+  @ApiResponse({ status: 503, description: "Um ou mais downstream indisponíveis" })
+  check() {
+    return this.terminusHealth.check([
+      () =>
+        this.http.pingCheck("users-service", `${serviceConfig.users.url}/health`, {
+          timeout: HEALTH_PING_TIMEOUT_MS,
+        }),
+      () =>
+        this.http.pingCheck("products-service", `${serviceConfig.products.url}/health`, {
+          timeout: HEALTH_PING_TIMEOUT_MS,
+        }),
+      () =>
+        this.http.pingCheck("checkout-service", `${serviceConfig.checkout.url}/health`, {
+          timeout: HEALTH_PING_TIMEOUT_MS,
+        }),
+      () =>
+        this.http.pingCheck("payments-service", `${serviceConfig.payments.url}/health`, {
+          timeout: HEALTH_PING_TIMEOUT_MS,
+        }),
+    ]);
   }
 
   @Get("services")
@@ -73,9 +94,9 @@ export class HealthController {
     return this.healthService.getReadyStatus();
   }
 
-  @Get("ready")
-  @ApiOperation({ summary: "Get readiness status" })
-  @ApiResponse({ status: 200, description: "Readiness status retrieved successfully" })
+  @Get("live")
+  @ApiOperation({ summary: "Get liveness status" })
+  @ApiResponse({ status: 200, description: "Liveness status retrieved successfully" })
   async getLive() {
     return this.healthService.getLiveStatus();
   }
