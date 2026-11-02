@@ -15,6 +15,7 @@ import { CustomThrottlerGuard } from "./guards/throttler.guard";
 import { HealthModule } from "./health/health.module";
 import { LogginMiddleware } from "./middleware/loggin/loggin.middleware";
 import { MiddlewareModule } from "./middleware/middleware.module";
+import { PaymentsModule } from "./payments/payments.module";
 import { ProxyModule } from "./proxy/proxy.module";
 
 @Module({
@@ -43,6 +44,7 @@ import { ProxyModule } from "./proxy/proxy.module";
     }),
     ProxyModule,
     CheckoutModule,
+    PaymentsModule,
     MiddlewareModule,
     AuthModule,
     HealthModule,
