@@ -101,6 +101,28 @@ export class CartService {
     return this.reloadAndRecalculateTotal(cart.id);
   }
 
+  async getActiveCart(userId: string): Promise<Cart | null> {
+    return this.findActiveCart(userId);
+  }
+
+  async markCartCompleted(userId: string, cartId: string): Promise<Cart> {
+    const cart = await this.cartRepository.findOne({
+      where: {
+        id: cartId,
+        userId,
+        status: CartStatus.ACTIVE,
+      },
+    });
+
+    if (!cart) {
+      throw new NotFoundException("Active cart not found");
+    }
+
+    cart.status = CartStatus.COMPLETED;
+
+    return this.cartRepository.save(cart);
+  }
+
   private findActiveCart(userId: string): Promise<Cart | null> {
     return this.cartRepository.findOne({
       where: {
