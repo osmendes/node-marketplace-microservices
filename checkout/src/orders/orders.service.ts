@@ -6,6 +6,7 @@ import { Cart, CartStatus } from "../cart/entities/cart.entity";
 import { PaymentQueueService } from "../events/payment-queue/payment-queue.service";
 import type { PaymentOrderMessage } from "../events/payment-queue.interface";
 import type { PaymentResultMessage } from "../events/payment-result.interface";
+import { MetricsService } from "../metrics/metrics.service";
 import type { CheckoutDto } from "./dto/checkout.dto";
 import { Order, OrderStatus } from "./entities/order.entity";
 
@@ -19,6 +20,7 @@ export class OrdersService {
     private readonly cartService: CartService,
     private readonly paymentQueueService: PaymentQueueService,
     private readonly dataSource: DataSource,
+    private readonly metricsService: MetricsService,
   ) {}
 
   async checkout(userId: string, dto: CheckoutDto): Promise<Order> {
@@ -55,6 +57,8 @@ export class OrdersService {
 
       return savedOrder;
     });
+
+    this.metricsService.ordersCreatedTotal.inc();
 
     const paymentMessage: PaymentOrderMessage = {
       orderId: order.id,

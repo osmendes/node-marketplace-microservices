@@ -1,4 +1,5 @@
 import { Injectable, Logger } from "@nestjs/common";
+import { MetricsService } from "../../metrics/metrics.service";
 import { PaymentOrderMessage } from "../payment-queue.interface";
 import { RabbitmqService } from "../rabbitmq/rabbitmq.service";
 
@@ -7,8 +8,12 @@ export class PaymentQueueService {
   private readonly logger = new Logger(PaymentQueueService.name);
   private readonly ROUTING_KEY = "payment.order";
   private readonly EXCHANGE = "payment";
+  private readonly QUEUE_LABEL = "payment_queue";
 
-  constructor(private readonly rabbitMQService: RabbitmqService) {}
+  constructor(
+    private readonly rabbitMQService: RabbitmqService,
+    private readonly metricsService: MetricsService,
+  ) {}
 
   async publishPaymentOrder(paymentOrder: PaymentOrderMessage): Promise<void> {
     this.logger.log(`Publishing payment order for orderId: ${paymentOrder.orderId}`);
@@ -24,6 +29,8 @@ export class PaymentQueueService {
       };
 
       await this.rabbitMQService.publishMessage(this.EXCHANGE, this.ROUTING_KEY, enrichmentMessage);
+
+      this.metricsService.rabbitmqMessagesPublishedTotal.inc({ queue: this.QUEUE_LABEL });
 
       this.logger.log(
         `✅ Payment order publishied successfully: ` +

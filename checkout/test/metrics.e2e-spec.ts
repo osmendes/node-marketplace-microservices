@@ -29,6 +29,8 @@ describe("MetricsController (e2e)", () => {
 
     expect(response.text).toContain("http_requests_total");
     expect(response.text).toContain("http_request_duration_seconds");
+    expect(response.text).toContain("orders_created_total");
+    expect(response.text).toContain("rabbitmq_messages_published_total");
     expect(response.text).toMatch(DEFAULT_NODE_METRICS_PATTERN);
     expect(String(response.headers["content-type"])).toContain("text/plain");
   });

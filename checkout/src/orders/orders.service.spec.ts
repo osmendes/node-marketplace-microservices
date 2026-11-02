@@ -4,6 +4,7 @@ import type { CartService } from "../cart/cart.service";
 import { CartStatus } from "../cart/entities/cart.entity";
 import type { CartItem } from "../cart/entities/cart-item.entity";
 import type { PaymentQueueService } from "../events/payment-queue/payment-queue.service";
+import type { MetricsService } from "../metrics/metrics.service";
 import { CheckoutDto } from "./dto/checkout.dto";
 import { type Order, OrderStatus } from "./entities/order.entity";
 import { PaymentMethod } from "./enums/payment-method.enum";
@@ -25,6 +26,9 @@ describe("OrdersService", () => {
   };
   let dataSource: {
     transaction: ReturnType<typeof vi.fn>;
+  };
+  let metricsService: {
+    ordersCreatedTotal: { inc: ReturnType<typeof vi.fn> };
   };
 
   const userId = "11111111-1111-4111-8111-111111111111";
@@ -81,6 +85,10 @@ describe("OrdersService", () => {
       publishPaymentOrder: vi.fn().mockResolvedValue(undefined),
     };
 
+    metricsService = {
+      ordersCreatedTotal: { inc: vi.fn() },
+    };
+
     dataSource = {
       transaction: vi.fn(async (callback: (manager: unknown) => Promise<Order>) => {
         const manager = {
@@ -102,6 +110,7 @@ describe("OrdersService", () => {
       cartService as unknown as CartService,
       paymentQueueService as unknown as PaymentQueueService,
       dataSource as never,
+      metricsService as unknown as MetricsService,
     );
   });
 
@@ -133,6 +142,7 @@ describe("OrdersService", () => {
       ],
       paymentMethod: PaymentMethod.PIX,
     });
+    expect(metricsService.ordersCreatedTotal.inc).toHaveBeenCalledTimes(1);
   });
 
   it("throws BadRequestException when cart is missing", async () => {
@@ -141,6 +151,7 @@ describe("OrdersService", () => {
     await expect(service.checkout(userId, dto)).rejects.toBeInstanceOf(BadRequestException);
     expect(dataSource.transaction).not.toHaveBeenCalled();
     expect(paymentQueueService.publishPaymentOrder).not.toHaveBeenCalled();
+    expect(metricsService.ordersCreatedTotal.inc).not.toHaveBeenCalled();
   });
 
   it("throws BadRequestException when cart has no items", async () => {
@@ -152,6 +163,7 @@ describe("OrdersService", () => {
 
     await expect(service.checkout(userId, dto)).rejects.toBeInstanceOf(BadRequestException);
     expect(paymentQueueService.publishPaymentOrder).not.toHaveBeenCalled();
+    expect(metricsService.ordersCreatedTotal.inc).not.toHaveBeenCalled();
   });
 
   it("propagates payment publish failures after persisting the order", async () => {
@@ -160,6 +172,7 @@ describe("OrdersService", () => {
 
     await expect(service.checkout(userId, dto)).rejects.toThrow("broker down");
     expect(dataSource.transaction).toHaveBeenCalled();
+    expect(metricsService.ordersCreatedTotal.inc).toHaveBeenCalledTimes(1);
   });
 
   it("lists only the authenticated user's orders newest first", async () => {
