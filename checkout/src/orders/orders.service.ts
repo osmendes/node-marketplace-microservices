@@ -21,7 +21,7 @@ export class OrdersService {
   async checkout(userId: string, dto: CheckoutDto): Promise<Order> {
     const cart = await this.cartService.getActiveCart(userId);
 
-    if (!cart || !cart.items || cart.items.length === 0) {
+    if (!cart?.items || cart.items.length === 0) {
       throw new BadRequestException("Cart is empty");
     }
 
