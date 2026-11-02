@@ -9,12 +9,14 @@ import { JwtAuthGuard } from "./auth/guards/jwt-auth.guard";
 import { CartModule } from "./cart/cart.module";
 import { databaseConfig } from "./config/database.config";
 import { EventsModule } from "./events/events.module";
+import { MetricsModule } from "./metrics/metrics.module";
 import { OrdersModule } from "./orders/orders.module";
 
 @Module({
   imports: [
     ConfigModule.forRoot({ isGlobal: true }),
     TypeOrmModule.forRoot(databaseConfig),
+    MetricsModule,
     EventsModule,
     CartModule,
     OrdersModule,
