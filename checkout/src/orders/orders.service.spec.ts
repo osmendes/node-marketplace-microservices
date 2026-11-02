@@ -14,6 +14,7 @@ describe("OrdersService", () => {
   let orderRepository: {
     find: ReturnType<typeof vi.fn>;
     findOne: ReturnType<typeof vi.fn>;
+    save: ReturnType<typeof vi.fn>;
   };
   let cartService: {
     getActiveCart: ReturnType<typeof vi.fn>;
@@ -68,6 +69,7 @@ describe("OrdersService", () => {
     orderRepository = {
       find: vi.fn(),
       findOne: vi.fn(),
+      save: vi.fn(async (value: Order) => value),
     };
 
     cartService = {
@@ -189,5 +191,71 @@ describe("OrdersService", () => {
     orderRepository.findOne.mockResolvedValue(null);
 
     await expect(service.findOneByUser(otherUserId, orderId)).rejects.toBeInstanceOf(NotFoundException);
+  });
+
+  describe("applyPaymentResult", () => {
+    const baseResult = {
+      orderId,
+      paymentId: "eeeeeeee-eeee-4eee-8eee-eeeeeeeeeeee",
+      userId,
+      amount: 201,
+      transactionId: "txn_1",
+      rejectionReason: null as string | null,
+      processedAt: "2026-11-02T16:00:00.000Z",
+    };
+
+    it("maps approved to paid and persists the order", async () => {
+      orderRepository.findOne.mockResolvedValue({ ...pendingOrder });
+
+      await service.applyPaymentResult({ ...baseResult, status: "approved" });
+
+      expect(orderRepository.save).toHaveBeenCalledWith(
+        expect.objectContaining({
+          id: orderId,
+          status: OrderStatus.PAID,
+        }),
+      );
+    });
+
+    it("maps rejected to failed and persists the order", async () => {
+      orderRepository.findOne.mockResolvedValue({ ...pendingOrder });
+
+      await service.applyPaymentResult({
+        ...baseResult,
+        status: "rejected",
+        rejectionReason: "Cartão recusado pela operadora",
+      });
+
+      expect(orderRepository.save).toHaveBeenCalledWith(
+        expect.objectContaining({
+          id: orderId,
+          status: OrderStatus.FAILED,
+        }),
+      );
+    });
+
+    it("is idempotent when order already has the target status", async () => {
+      orderRepository.findOne.mockResolvedValue({ ...pendingOrder, status: OrderStatus.PAID });
+
+      await service.applyPaymentResult({ ...baseResult, status: "approved" });
+
+      expect(orderRepository.save).not.toHaveBeenCalled();
+    });
+
+    it("throws NotFoundException when order does not exist", async () => {
+      orderRepository.findOne.mockResolvedValue(null);
+
+      await expect(service.applyPaymentResult({ ...baseResult, status: "approved" })).rejects.toBeInstanceOf(
+        NotFoundException,
+      );
+      expect(orderRepository.save).not.toHaveBeenCalled();
+    });
+
+    it("throws BadRequestException for invalid status", async () => {
+      await expect(
+        service.applyPaymentResult({ ...baseResult, status: "pending" as "approved" }),
+      ).rejects.toBeInstanceOf(BadRequestException);
+      expect(orderRepository.findOne).not.toHaveBeenCalled();
+    });
   });
 });

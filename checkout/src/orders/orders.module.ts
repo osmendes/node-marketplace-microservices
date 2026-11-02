@@ -6,11 +6,12 @@ import { CheckoutController } from "./checkout.controller";
 import { Order } from "./entities/order.entity";
 import { OrdersController } from "./orders.controller";
 import { OrdersService } from "./orders.service";
+import { PaymentResultConsumerService } from "./payment-result-consumer.service";
 
 @Module({
   imports: [TypeOrmModule.forFeature([Order]), CartModule, EventsModule],
   controllers: [CheckoutController, OrdersController],
-  providers: [OrdersService],
+  providers: [OrdersService, PaymentResultConsumerService],
   exports: [TypeOrmModule, OrdersService],
 })
 export class OrdersModule {}

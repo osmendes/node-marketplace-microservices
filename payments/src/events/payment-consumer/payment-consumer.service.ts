@@ -1,7 +1,11 @@
 import { Injectable, Logger, OnModuleInit } from "@nestjs/common";
+import type { Payment } from "../../payments/entities/payment.entity";
+import { PaymentStatus } from "../../payments/enums/payment-status.enum";
 import { PaymentsService } from "../../payments/payments.service";
 import { PaymentQueueService } from "../payment-queue/payment-queue.service";
 import type { PaymentOrderMessage } from "../payment-queue.interface";
+import type { PaymentResultMessage, PaymentResultStatus } from "../payment-result.interface";
+import { PaymentResultQueueService } from "../payment-result-queue/payment-result-queue.service";
 import { RabbitmqService } from "../rabbitmq/rabbitmq.service";
 
 export interface ConsumerMetrics {
@@ -41,6 +45,7 @@ export class PaymentConsumerService implements OnModuleInit {
     private readonly paymentQueueService: PaymentQueueService,
     private readonly rabbitMQService: RabbitmqService,
     private readonly paymentsService: PaymentsService,
+    private readonly paymentResultQueueService: PaymentResultQueueService,
   ) {}
 
   async onModuleInit() {
@@ -82,7 +87,8 @@ export class PaymentConsumerService implements OnModuleInit {
       }
 
       this.logger.log("Payment order received and validated");
-      await this.paymentsService.processPayment(message);
+      const processedPayment: Payment = await this.paymentsService.processPayment(message);
+      await this.publishPaymentResult(processedPayment);
       this.updateMetrics(true, startTime);
     } catch (error) {
       this.updateMetrics(false, startTime);
@@ -91,6 +97,29 @@ export class PaymentConsumerService implements OnModuleInit {
       // IMPORTANTE: relançamos o erro para o RabbitMQ fazer NACK
       throw error;
     }
+  }
+
+  private async publishPaymentResult(payment: Payment): Promise<void> {
+    if (payment.status !== PaymentStatus.APPROVED && payment.status !== PaymentStatus.REJECTED) {
+      this.logger.warn(
+        `Skipping payment result publish for non-final status: paymentId=${payment.id}, status=${payment.status}`,
+      );
+      return;
+    }
+
+    const status: PaymentResultStatus = payment.status;
+    const resultMessage: PaymentResultMessage = {
+      orderId: payment.orderId,
+      paymentId: payment.id,
+      userId: payment.userId,
+      status,
+      amount: Number(payment.amount),
+      transactionId: payment.transactionId,
+      rejectionReason: payment.rejectionReason,
+      processedAt: (payment.processedAt ?? new Date()).toISOString(),
+    };
+
+    await this.paymentResultQueueService.publishPaymentResult(resultMessage);
   }
 
   private validateMessage(message: PaymentOrderMessage): boolean {
