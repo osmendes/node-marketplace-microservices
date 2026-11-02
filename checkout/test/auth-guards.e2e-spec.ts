@@ -40,13 +40,12 @@ describe("JWT guards (e2e)", () => {
     await request(app.getHttpServer()).get("/").expect(200).expect("Hello World!");
   });
 
-  it("GET /health remains public and returns checkout-service payload", async () => {
+  it("GET /health remains public and returns Terminus status with database and rabbitmq", async () => {
     const response = await request(app.getHttpServer()).get("/health").expect(200);
 
-    expect(response.body).toEqual({
-      status: "ok",
-      service: "checkout-service",
-    });
+    expect(response.body.status).toBe("ok");
+    expect(response.body.details?.database?.status).toBe("up");
+    expect(response.body.details?.rabbitmq?.status).toBe("up");
   });
 
   it("GET /__test/protected returns 401 without token", async () => {
