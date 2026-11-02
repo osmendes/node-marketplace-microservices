@@ -21,13 +21,11 @@ describe("AppController (e2e)", () => {
     return request(app.getHttpServer()).get("/").expect(200).expect("Hello World!");
   });
 
-  it("/health (GET) is public and returns service status", async () => {
+  it("/health (GET) is public and returns Terminus status with database", async () => {
     const response = await request(app.getHttpServer()).get("/health").expect(200);
 
-    expect(response.body).toEqual({
-      status: "ok",
-      service: "users-service",
-    });
+    expect(response.body.status).toBe("ok");
+    expect(response.body.details?.database?.status).toBe("up");
   });
 
   afterEach(async () => {

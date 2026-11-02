@@ -7,6 +7,7 @@ import { AppService } from "./app.service";
 import { AuthModule } from "./auth/auth.module";
 import { JwtAuthGuard } from "./auth/guards/jwt-auth.guard";
 import { databaseConfig } from "./config/database.config";
+import { HealthModule } from "./health/health.module";
 import { MetricsModule } from "./metrics/metrics.module";
 import { UsersModule } from "./users/users.module";
 
@@ -15,6 +16,7 @@ import { UsersModule } from "./users/users.module";
     ConfigModule.forRoot({ isGlobal: true }),
     TypeOrmModule.forRoot(databaseConfig),
     MetricsModule,
+    HealthModule,
     UsersModule,
     AuthModule,
   ],
