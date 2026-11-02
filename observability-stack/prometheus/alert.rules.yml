@@ -1,0 +1,73 @@
+groups:
+  - name: marketplace.alerts
+    rules:
+      - alert: ServiceDown
+        expr: up{job=~"api-gateway|users-service|products-service|checkout-service|payments-service"} == 0
+        for: 30s
+        labels:
+          severity: critical
+        annotations:
+          summary: "Serviço {{ $labels.job }} está DOWN"
+          description: "O target scrape do job {{ $labels.job }} (instance {{ $labels.instance }}) está com up == 0 há mais de 30s."
+
+      - alert: HighErrorRate
+        expr: |
+          (
+            sum by (job) (rate(http_requests_total{job=~"api-gateway|users-service|products-service|checkout-service|payments-service",status_code=~"5.."}[5m]))
+            /
+            sum by (job) (rate(http_requests_total{job=~"api-gateway|users-service|products-service|checkout-service|payments-service"}[5m]))
+          ) > 0.10
+        for: 1m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Taxa de erros 5xx alta em {{ $labels.job }}"
+          description: "Mais de 10% das requests de {{ $labels.job }} estão retornando 5xx (janela rate 5m) há mais de 1m."
+
+      - alert: HighLatencyP95
+        expr: |
+          histogram_quantile(
+            0.95,
+            sum by (job, le) (
+              rate(http_request_duration_seconds_bucket{job=~"api-gateway|users-service|products-service|checkout-service|payments-service"}[5m])
+            )
+          ) > 2
+        for: 1m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Latência P95 alta em {{ $labels.job }}"
+          description: "P95 de http_request_duration_seconds em {{ $labels.job }} está acima de 2s há mais de 1m."
+
+      - alert: HighMemoryUsage
+        expr: process_resident_memory_bytes{job=~"api-gateway|users-service|products-service|checkout-service|payments-service"} > 512 * 1024 * 1024
+        for: 2m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Uso de memória alto em {{ $labels.job }}"
+          description: "process_resident_memory_bytes de {{ $labels.job }} está acima de 512MB há mais de 2m."
+
+      - alert: NoPaymentsProcessed
+        expr: increase(payments_processed_total[5m]) == 0
+        for: 5m
+        labels:
+          severity: info
+        annotations:
+          summary: "Nenhum pagamento processado nos últimos 5 minutos"
+          description: "increase(payments_processed_total[5m]) == 0 por mais de 5m. Em ambiente ocioso este alerta info pode disparar normalmente."
+
+      - alert: HighPaymentRejectionRate
+        expr: |
+          (
+            sum(rate(payments_rejected_total[5m]))
+            /
+            sum(rate(payments_processed_total[5m]))
+          ) > 0.5
+          and sum(rate(payments_processed_total[5m])) > 0
+        for: 2m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Taxa de rejeição de pagamentos alta"
+          description: "Mais de 50% dos pagamentos processados estão sendo rejeitados (rate 5m) há mais de 2m."
