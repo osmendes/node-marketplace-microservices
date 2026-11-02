@@ -1,5 +1,4 @@
 import { Controller, Get } from "@nestjs/common";
-import type { HealthResponse } from "./app.service";
 import { AppService } from "./app.service";
 
 @Controller()
@@ -9,10 +8,5 @@ export class AppController {
   @Get()
   getHello(): string {
     return this.appService.getHello();
-  }
-
-  @Get("health")
-  getHealth(): HealthResponse {
-    return this.appService.getHealth();
   }
 }

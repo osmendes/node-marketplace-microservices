@@ -5,6 +5,7 @@ import { AppController } from "./app.controller";
 import { AppService } from "./app.service";
 import { databaseConfig } from "./config/database.config";
 import { EventsModule } from "./events/events.module";
+import { HealthModule } from "./health/health.module";
 import { MetricsModule } from "./metrics/metrics.module";
 import { PaymentsModule } from "./payments/payments.module";
 
@@ -13,6 +14,7 @@ import { PaymentsModule } from "./payments/payments.module";
     ConfigModule.forRoot({ isGlobal: true }),
     TypeOrmModule.forRoot(databaseConfig),
     MetricsModule,
+    HealthModule,
     PaymentsModule,
     EventsModule,
   ],

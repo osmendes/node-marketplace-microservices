@@ -78,13 +78,4 @@ describe("Payments HTTP (e2e)", () => {
     await request(app.getHttpServer()).get("/payments/not-a-uuid").expect(400);
     expect(findByOrderId).not.toHaveBeenCalled();
   });
-
-  it("GET /health returns 200 with payments-service status", async () => {
-    const response = await request(app.getHttpServer()).get("/health").expect(200);
-
-    expect(response.body).toEqual({
-      status: "ok",
-      service: "payments-service",
-    });
-  });
 });

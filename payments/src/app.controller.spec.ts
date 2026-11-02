@@ -20,13 +20,4 @@ describe("AppController", () => {
       expect(appController.getHello()).toBe("Hello World!");
     });
   });
-
-  describe("health", () => {
-    it("should return payments-service health payload", () => {
-      expect(appController.getHealth()).toEqual({
-        status: "ok",
-        service: "payments-service",
-      });
-    });
-  });
 });
