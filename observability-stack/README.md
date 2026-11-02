@@ -10,12 +10,20 @@ Segue o mesmo padrão de `messaging/`: pasta dedicada na raiz do monorepo, apena
 observability-stack/
 ├── compose.yaml
 ├── README.md
+├── docs/
+│   └── specs/
+│       └── grafana-dashboards-and-business-metrics.md
 ├── prometheus/
 │   └── prometheus.yml
 └── grafana/
     └── provisioning/
-        └── datasources/
-            └── prometheus.yml
+        ├── datasources/
+        │   └── prometheus.yml
+        └── dashboards/
+            ├── dashboards.yml
+            └── json/
+                ├── marketplace-overview.json
+                └── service-details.json
 ```
 
 ## Mapa de portas
@@ -79,11 +87,35 @@ O Prometheus está configurado para coletar `/metrics` dos cinco serviços NestJ
 
 O Grafana inicia com o datasource **Prometheus** já provisionado (`http://prometheus:9090`).
 
+## Dashboards provisionados
+
+Os dashboards são versionados em `grafana/provisioning/dashboards/` e carregados automaticamente no boot (pasta **Marketplace** no Grafana).
+
+| Dashboard | UID | Conteúdo |
+|---|---|---|
+| **Marketplace Overview** | `marketplace-overview` | Status UP/DOWN, throughput, erros 4xx/5xx, latência P95, memória e métricas de negócio |
+| **Service Details** | `service-details` | Variável `$service`; método RED por rota; top rotas; status codes; CPU, memória e event loop |
+
+URLs diretas (com a stack no ar):
+
+- http://localhost:3010/d/marketplace-overview/marketplace-overview
+- http://localhost:3010/d/service-details/service-details
+
+### Métricas de negócio
+
+Além das métricas HTTP (`http_requests_total`, `http_request_duration_seconds`) e defaults do Node.js, o scrape de `/metrics` inclui:
+
+| Serviço | Métricas |
+|---|---|
+| `payments-service` | `payments_processed_total`, `payments_approved_total`, `payments_rejected_total{reason}` |
+| `checkout-service` | `orders_created_total`, `rabbitmq_messages_published_total{queue}` |
+
+A tabela PromQL de referência está na SPEC `docs/specs/grafana-dashboards-and-business-metrics.md`.
+
 ## Fora desta entrega
 
-- Instrumentação dos serviços NestJS com métricas
-- Dashboards no Grafana
-- Alerting (Alertmanager / regras / contact points)
+- Alerting (Alertmanager / regras / contact points do Grafana) — próxima SPEC
+- Exporters de banco de dados ou RabbitMQ
 - Loki, Jaeger ou outras ferramentas além de Prometheus e Grafana
 
 ## Imagens

@@ -2,6 +2,7 @@ import { Injectable, Logger, NotFoundException } from "@nestjs/common";
 import { InjectRepository } from "@nestjs/typeorm";
 import { Repository } from "typeorm";
 import type { PaymentOrderMessage } from "../events/payment-queue.interface";
+import { MetricsService } from "../metrics/metrics.service";
 import { Payment } from "./entities/payment.entity";
 import { PaymentStatus } from "./enums/payment-status.enum";
 import { FakePaymentGatewayService } from "./fake-payment-gateway.service";
@@ -14,6 +15,7 @@ export class PaymentsService {
     @InjectRepository(Payment)
     private readonly paymentRepository: Repository<Payment>,
     private readonly fakePaymentGatewayService: FakePaymentGatewayService,
+    private readonly metricsService: MetricsService,
   ) {}
 
   async processPayment(message: PaymentOrderMessage): Promise<Payment> {
@@ -42,6 +44,15 @@ export class PaymentsService {
     this.logger.log(
       `Payment processed: id=${processedPayment.id}, orderId=${processedPayment.orderId}, status=${processedPayment.status}`,
     );
+
+    this.metricsService.paymentsProcessedTotal.inc();
+    if (gatewayResult.approved) {
+      this.metricsService.paymentsApprovedTotal.inc();
+    } else {
+      this.metricsService.paymentsRejectedTotal.inc({
+        reason: gatewayResult.rejectionReason?.trim() || "unknown",
+      });
+    }
 
     return processedPayment;
   }

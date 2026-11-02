@@ -6,6 +6,8 @@ export class MetricsService implements OnModuleInit {
   readonly registry: Registry;
   readonly httpRequestsTotal: Counter<"method" | "route" | "status_code">;
   readonly httpRequestDurationSeconds: Histogram<"method" | "route" | "status_code">;
+  readonly ordersCreatedTotal: Counter;
+  readonly rabbitmqMessagesPublishedTotal: Counter<"queue">;
 
   constructor() {
     this.registry = new Registry();
@@ -21,6 +23,19 @@ export class MetricsService implements OnModuleInit {
       name: "http_request_duration_seconds",
       help: "Duration of HTTP requests in seconds",
       labelNames: ["method", "route", "status_code"],
+      registers: [this.registry],
+    });
+
+    this.ordersCreatedTotal = new Counter({
+      name: "orders_created_total",
+      help: "Total number of orders created",
+      registers: [this.registry],
+    });
+
+    this.rabbitmqMessagesPublishedTotal = new Counter({
+      name: "rabbitmq_messages_published_total",
+      help: "Total number of RabbitMQ messages published successfully",
+      labelNames: ["queue"],
       registers: [this.registry],
     });
   }

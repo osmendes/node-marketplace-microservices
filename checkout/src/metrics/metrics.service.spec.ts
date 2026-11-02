@@ -24,6 +24,17 @@ describe("MetricsService", () => {
     expect(metrics).toContain('status_code="200"');
   });
 
+  it("exposes orders and RabbitMQ publish business counters", async () => {
+    service.ordersCreatedTotal.inc();
+    service.rabbitmqMessagesPublishedTotal.inc({ queue: "payment_queue" });
+
+    const metrics = await service.getMetrics();
+
+    expect(metrics).toContain("orders_created_total");
+    expect(metrics).toContain("rabbitmq_messages_published_total");
+    expect(metrics).toContain('queue="payment_queue"');
+  });
+
   it("includes default Node.js metrics from collectDefaultMetrics", async () => {
     const metrics = await service.getMetrics();
 

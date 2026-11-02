@@ -29,6 +29,9 @@ describe("MetricsController (e2e)", () => {
 
     expect(response.text).toContain("http_requests_total");
     expect(response.text).toContain("http_request_duration_seconds");
+    expect(response.text).toContain("payments_processed_total");
+    expect(response.text).toContain("payments_approved_total");
+    expect(response.text).toContain("payments_rejected_total");
     expect(response.text).toMatch(DEFAULT_NODE_METRICS_PATTERN);
     expect(String(response.headers["content-type"])).toContain("text/plain");
     expect(response.text.trim().startsWith("{")).toBe(false);
