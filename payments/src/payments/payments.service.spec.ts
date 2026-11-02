@@ -1,6 +1,7 @@
 import { NotFoundException } from "@nestjs/common";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import type { PaymentOrderMessage } from "../events/payment-queue.interface";
+import type { MetricsService } from "../metrics/metrics.service";
 import type { Payment } from "./entities/payment.entity";
 import { PaymentStatus } from "./enums/payment-status.enum";
 import type { FakePaymentGatewayService } from "./fake-payment-gateway.service";
@@ -15,6 +16,11 @@ describe("PaymentsService", () => {
   };
   let fakePaymentGatewayService: {
     process: ReturnType<typeof vi.fn>;
+  };
+  let metricsService: {
+    paymentsProcessedTotal: { inc: ReturnType<typeof vi.fn> };
+    paymentsApprovedTotal: { inc: ReturnType<typeof vi.fn> };
+    paymentsRejectedTotal: { inc: ReturnType<typeof vi.fn> };
   };
 
   const orderId = "dddddddd-dddd-4ddd-8ddd-dddddddddddd";
@@ -54,9 +60,16 @@ describe("PaymentsService", () => {
       process: vi.fn(),
     };
 
+    metricsService = {
+      paymentsProcessedTotal: { inc: vi.fn() },
+      paymentsApprovedTotal: { inc: vi.fn() },
+      paymentsRejectedTotal: { inc: vi.fn() },
+    };
+
     service = new PaymentsService(
       paymentRepository as never,
       fakePaymentGatewayService as unknown as FakePaymentGatewayService,
+      metricsService as unknown as MetricsService,
     );
   });
 
@@ -84,6 +97,9 @@ describe("PaymentsService", () => {
       expect(result.rejectionReason).toBeNull();
       expect(result.processedAt).toBeInstanceOf(Date);
       expect(paymentRepository.save).toHaveBeenCalledTimes(2);
+      expect(metricsService.paymentsProcessedTotal.inc).toHaveBeenCalledTimes(1);
+      expect(metricsService.paymentsApprovedTotal.inc).toHaveBeenCalledTimes(1);
+      expect(metricsService.paymentsRejectedTotal.inc).not.toHaveBeenCalled();
     });
 
     it("persists rejected result with rejectionReason", async () => {
@@ -99,6 +115,9 @@ describe("PaymentsService", () => {
       expect(result.transactionId).toBe("txn_rejected");
       expect(result.rejectionReason).toBe("Limite excedido");
       expect(result.processedAt).toBeInstanceOf(Date);
+      expect(metricsService.paymentsProcessedTotal.inc).toHaveBeenCalledTimes(1);
+      expect(metricsService.paymentsApprovedTotal.inc).not.toHaveBeenCalled();
+      expect(metricsService.paymentsRejectedTotal.inc).toHaveBeenCalledWith({ reason: "Limite excedido" });
     });
   });
 

@@ -24,6 +24,19 @@ describe("MetricsService", () => {
     expect(metrics).toContain('status_code="200"');
   });
 
+  it("exposes payment business counters including rejected reason label", async () => {
+    service.paymentsProcessedTotal.inc();
+    service.paymentsApprovedTotal.inc();
+    service.paymentsRejectedTotal.inc({ reason: "Limite excedido" });
+
+    const metrics = await service.getMetrics();
+
+    expect(metrics).toContain("payments_processed_total");
+    expect(metrics).toContain("payments_approved_total");
+    expect(metrics).toContain("payments_rejected_total");
+    expect(metrics).toContain('reason="Limite excedido"');
+  });
+
   it("includes default Node.js metrics from collectDefaultMetrics", async () => {
     const metrics = await service.getMetrics();
 
