@@ -253,4 +253,48 @@ describe("CartService", () => {
 
     await expect(service.removeItem(userId, itemId)).rejects.toBeInstanceOf(NotFoundException);
   });
+
+  it("returns active cart via getActiveCart", async () => {
+    const cart = {
+      id: cartId,
+      userId,
+      status: CartStatus.ACTIVE,
+      total: "100.50",
+      items: [],
+    } as Cart;
+
+    cartRepository.findOne.mockResolvedValue(cart);
+
+    await expect(service.getActiveCart(userId)).resolves.toEqual(cart);
+  });
+
+  it("marks active cart as completed", async () => {
+    const cart = {
+      id: cartId,
+      userId,
+      status: CartStatus.ACTIVE,
+      total: "100.50",
+      items: [],
+    } as Cart;
+
+    cartRepository.findOne.mockResolvedValue(cart);
+    cartRepository.save.mockImplementation(async (value: Cart) => value);
+
+    const result = await service.markCartCompleted(userId, cartId);
+
+    expect(result.status).toBe(CartStatus.COMPLETED);
+    expect(cartRepository.save).toHaveBeenCalledWith(
+      expect.objectContaining({
+        id: cartId,
+        userId,
+        status: CartStatus.COMPLETED,
+      }),
+    );
+  });
+
+  it("throws NotFoundException when completing missing active cart", async () => {
+    cartRepository.findOne.mockResolvedValue(null);
+
+    await expect(service.markCartCompleted(userId, cartId)).rejects.toBeInstanceOf(NotFoundException);
+  });
 });
