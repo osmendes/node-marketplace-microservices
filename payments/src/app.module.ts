@@ -5,9 +5,15 @@ import { AppController } from "./app.controller";
 import { AppService } from "./app.service";
 import { databaseConfig } from "./config/database.config";
 import { EventsModule } from "./events/events.module";
+import { PaymentsModule } from "./payments/payments.module";
 
 @Module({
-  imports: [ConfigModule.forRoot({ isGlobal: true }), TypeOrmModule.forRoot(databaseConfig), EventsModule],
+  imports: [
+    ConfigModule.forRoot({ isGlobal: true }),
+    TypeOrmModule.forRoot(databaseConfig),
+    PaymentsModule,
+    EventsModule,
+  ],
   controllers: [AppController],
   providers: [AppService],
 })
