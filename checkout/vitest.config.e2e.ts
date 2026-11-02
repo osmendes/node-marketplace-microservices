@@ -7,6 +7,7 @@ export default defineConfig({
     root: "./",
     environment: "node",
     include: ["test/**/*.e2e-spec.ts"],
+    fileParallelism: false,
   },
   plugins: [swc.vite({ module: { type: "es6" } })],
 });
