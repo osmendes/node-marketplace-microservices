@@ -3,11 +3,13 @@ import { Test, type TestingModule } from "@nestjs/testing";
 import request from "supertest";
 import type { App } from "supertest/types";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { AppController } from "../src/app.controller";
+import { AppService } from "../src/app.service";
 import { PaymentStatus } from "../src/payments/enums/payment-status.enum";
 import { PaymentsController } from "../src/payments/payments.controller";
 import { PaymentsService } from "../src/payments/payments.service";
 
-describe("PaymentsController (e2e)", () => {
+describe("Payments HTTP (e2e)", () => {
   let app: INestApplication<App>;
   let findByOrderId: ReturnType<typeof vi.fn>;
 
@@ -17,8 +19,9 @@ describe("PaymentsController (e2e)", () => {
     findByOrderId = vi.fn();
 
     const moduleFixture: TestingModule = await Test.createTestingModule({
-      controllers: [PaymentsController],
+      controllers: [AppController, PaymentsController],
       providers: [
+        AppService,
         {
           provide: PaymentsService,
           useValue: {
@@ -74,5 +77,14 @@ describe("PaymentsController (e2e)", () => {
   it("GET /payments/:orderId returns 400 for invalid UUID", async () => {
     await request(app.getHttpServer()).get("/payments/not-a-uuid").expect(400);
     expect(findByOrderId).not.toHaveBeenCalled();
+  });
+
+  it("GET /health returns 200 with payments-service status", async () => {
+    const response = await request(app.getHttpServer()).get("/health").expect(200);
+
+    expect(response.body).toEqual({
+      status: "ok",
+      service: "payments-service",
+    });
   });
 });
