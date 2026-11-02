@@ -5,14 +5,23 @@
 O `payments-service` (pasta `payments/`, porta HTTP `3004`) já possui:
 
 - Scaffold NestJS com PostgreSQL (`payments_db`, porta host `5435`) e TypeORM
-- Integração com RabbitMQ via `EventsModule`: consumer que consome a fila `payment_queue`, com retry e DLQ configurados
-- `PaymentConsumerService` que valida a mensagem `PaymentOrderMessage` (`orderId`, `userId`, `amount`, `items[]`, `paymentMethod`), mas o processamento real ainda é um TODO — apenas registra a mensagem em log após a validação
-- Endpoints de DLQ (`stats`, listagem, `reprocess`, `reprocess-all`, descarte e `purge`) e de métricas do consumer (`GET /metrics`)
+- Integração com RabbitMQ via `EventsModule`: consumer que consome a fila `payment_queue` (exchange `payment`, routing key `payment.order`), com retry e DLQ configurados
+- Entidade `Payment`, `FakePaymentGatewayService`, `PaymentsService.processPayment` / `findByOrderId`
+- `PaymentConsumerService` que valida `PaymentOrderMessage` e processa o pagamento
+- Endpoint `GET /payments/:orderId` e health `GET /health`
+- Endpoints de DLQ e de métricas do consumer (`GET /metrics`)
 - Interface `PaymentOrderMessage` alinhada ao publisher do `checkout-service`
 
-O `checkout-service` publica mensagens no RabbitMQ ao finalizar um pedido (`POST /cart/checkout`). O fluxo assíncrono esperado é: **checkout cria Order → publica `PaymentOrderMessage` → payments-service consome → processa pagamento → persiste resultado**.
+O `checkout-service` publica mensagens no RabbitMQ ao finalizar um pedido (`POST /cart/checkout`). O fluxo assíncrono completo esperado é:
 
-Esta spec define a **persistência do pagamento** (entidade `Payment`), um **gateway de pagamento falso** para simulação determinística, a **conclusão do consumer**, o **serviço de negócio**, o **endpoint de consulta por `orderId`** e o **health check** do serviço. Gateway real (Stripe etc.), webhook de notificação ao checkout e alteração dos endpoints existentes de DLQ/métricas ficam fora de escopo.
+**checkout cria Order (`pending`) → publica `PaymentOrderMessage` → payments consome → processa e persiste `Payment` → publica `PaymentResultMessage` → checkout consome → atualiza Order (`paid` / `failed`)**.
+
+Esta spec cobre, no **payments-service**:
+
+1. Persistência do pagamento, gateway falso, consumer, consulta HTTP e health (entrega original)
+2. **Callback assíncrono de volta**: assim que o pagamento for registrado com status final (`approved` ou `rejected`), publicar o resultado via RabbitMQ para o checkout ouvir em fila dedicada e alterar o status da Order
+
+Gateway real (Stripe etc.), webhook **HTTP** para o checkout e alteração dos endpoints existentes de DLQ/métricas ficam fora de escopo. A notificação ao checkout nesta entrega é **somente via RabbitMQ**.
 
 ## Tipagem obrigatória
 
@@ -24,6 +33,7 @@ Isso inclui, no mínimo:
 - Variáveis locais relevantes ao fluxo de negócio
 - Contratos de retorno do gateway falso e da consulta de pagamento
 - Payload `PaymentOrderMessage` consumido e campos derivados para a entidade `Payment`
+- Contrato `PaymentResultMessage` publicado após o Payment final
 - Identificadores de rota (`orderId`) e enums de status
 
 Tipos implícitos ou `any` sem justificativa documentada **não** são aceitos nesta entrega.
@@ -35,7 +45,7 @@ Tipos implícitos ou `any` sem justificativa documentada **não** são aceitos n
 | NestJS | Já presente no serviço |
 | TypeORM | Persistência da nova entidade `Payment` |
 | PostgreSQL | Já presente (`payments_db`, host `5435`) |
-| RabbitMQ | Já presente via `EventsModule` / `PaymentQueueService` / `PaymentConsumerService` |
+| RabbitMQ | Ida: `payment` / `payment.order` / `payment_queue`. Volta: exchange/routing `payment.result` (fila consumida pelo checkout) |
 | Validação | `class-validator` + `class-transformer` (ValidationPipe global já habilitado, quando aplicável a DTOs HTTP) |
 
 ## Requisitos funcionais
@@ -119,11 +129,12 @@ O `PaymentConsumerService` existente deve deixar de apenas validar e logar a men
 Após a validação bem-sucedida da `PaymentOrderMessage`:
 
 1. Invocar `PaymentsService.processPayment` com a mensagem validada
-2. Manter o comportamento atual de métricas de sucesso/falha do consumer
-3. Em caso de falha no processamento (erro lançado), propagar o erro para que o mecanismo existente de NACK / retry / DLQ continue funcionando
-4. Mensagens inválidas continuam sendo rejeitadas como hoje (validação prévia)
+2. Após o `Payment` final persistido, publicar a `PaymentResultMessage` (RF-08 / RF-09)
+3. Manter o comportamento atual de métricas de sucesso/falha do consumer
+4. Em caso de falha no processamento ou na publicação do resultado (erro lançado), propagar o erro para que o mecanismo existente de NACK / retry / DLQ continue funcionando
+5. Mensagens inválidas continuam sendo rejeitadas como hoje (validação prévia)
 
-Não alterar a configuração de filas, retry, DLQ, nem os endpoints de DLQ e métricas nesta entrega.
+Não alterar a configuração de filas de **ida** (`payment_queue`), retry/DLQ de ida, nem os endpoints de DLQ e métricas nesta entrega.
 
 ### RF-05 — PaymentsController — consulta por orderId
 
@@ -163,6 +174,45 @@ Responsabilidades mínimas:
 
 A organização exata de pastas pode variar, desde que as responsabilidades acima estejam cobertas e os endpoints existentes de DLQ/métricas permaneçam inalterados em caminho e comportamento.
 
+### RF-08 — Contrato PaymentResultMessage
+
+Deve existir o contrato lógico `PaymentResultMessage`, publicado pelo payments-service após o Payment final, para o checkout-service consumir.
+
+| Campo | Descrição |
+|---|---|
+| `orderId` | UUID da Order no checkout (mesmo da `PaymentOrderMessage` original) |
+| `paymentId` | Identificador do `Payment` persistido |
+| `userId` | Usuário dono do pedido |
+| `status` | Resultado final: `approved` ou `rejected` (nunca `pending`) |
+| `amount` | Valor processado |
+| `transactionId` | Identificador da transação simulada (quando houver); nulo se ausente |
+| `rejectionReason` | Motivo quando `status = rejected`; nulo quando aprovado |
+| `processedAt` | Momento da conclusão (string ISO-8601 no fio da mensagem) |
+
+Regras:
+
+1. A mensagem só é publicada **depois** de o `Payment` estar persistido com status final
+2. `orderId` é a chave de correlação com a Order no checkout
+3. O shape deve permanecer coerente com o consumidor no checkout-service
+
+### RF-09 — Publicar resultado no RabbitMQ após Payment final
+
+Assim que o pagamento for registrado com status `approved` ou `rejected`:
+
+1. O payments-service deve publicar a `PaymentResultMessage` em canal RabbitMQ **dedicado ao resultado**, distinto da fila de ida
+2. Nomes canônicos:
+   - Exchange: `payment.result`
+   - Routing key: `payment.result`
+   - Fila consumida pelo checkout: `order_payment_result_queue` (responsabilidade do checkout assinar essa fila)
+3. Publicar **somente** status final (`approved` / `rejected`)
+4. Falha ao publicar: logar de forma visível e **propagar** o erro (NACK/retry da mensagem de ida); o `Payment` já persistido **não** deve ser apagado
+5. Preferir disparar a publicação a partir do fluxo do consumer **após** `processPayment` retornar (evitar ciclo de dependência entre módulo de pagamentos e eventos)
+
+Mapeamento esperado no checkout (fora do código desta pasta, mas contrato de integração):
+
+- Payment `approved` → Order `paid`
+- Payment `rejected` → Order `failed`
+
 ## Regras de negócio
 
 1. Todo pagamento nasce como `pending` e só muda para `approved` ou `rejected` após a resposta do gateway falso
@@ -171,9 +221,11 @@ A organização exata de pastas pode variar, desde que as responsabilidades acim
 4. Demais valores → sempre `approved`
 5. A latência simulada do gateway está entre 500 ms e 2000 ms por chamada
 6. O consumer só processa mensagens que passam na validação já existente (`orderId`, `userId`, `amount` > 0, `paymentMethod`, `items` não vazio)
-7. Falhas no `processPayment` continuam acionando retry/DLQ via propagação de erro no consumer
+7. Falhas no `processPayment` ou na publicação do `PaymentResultMessage` continuam acionando retry/DLQ via propagação de erro no consumer
 8. Consulta por `orderId` inexistente → 404
 9. Endpoints de DLQ e métricas **não** mudam de contrato nesta entrega
+10. Todo Payment final (`approved` / `rejected`) deve gerar publicação de `PaymentResultMessage` no canal `payment.result`
+11. A fila de ida (`payment_queue`) **não** é reutilizada como fila de resultado
 
 ## Estrutura de dados
 
@@ -190,7 +242,20 @@ A organização exata de pastas pode variar, desde que as responsabilidades acim
 | `createdAt` | Não | Opcional |
 | `metadata` | Não | Opcional |
 
-Esta spec **não** exige alterar o contrato da mensagem.
+Esta spec **não** exige alterar o contrato da mensagem de **ida**.
+
+### Contrato de saída — PaymentResultMessage
+
+| Campo | Obrigatório | Descrição |
+|---|---|---|
+| `orderId` | Sim | UUID do pedido |
+| `paymentId` | Sim | UUID do pagamento persistido |
+| `userId` | Sim | UUID do usuário |
+| `status` | Sim | `approved` ou `rejected` |
+| `amount` | Sim | Valor numérico processado |
+| `transactionId` | Não | String ou nulo |
+| `rejectionReason` | Não | String ou nulo (obrigatório semanticamente quando rejeitado) |
+| `processedAt` | Sim | ISO-8601 do momento da conclusão |
 
 ### Resultado do FakePaymentGatewayService
 
@@ -232,13 +297,15 @@ A resposta de `GET /payments/:orderId` (e o objeto persistido ao final de `proce
 
 ### Mensagem consumida — aprovação
 
-1. Checkout publica `PaymentOrderMessage` na fila
+1. Checkout publica `PaymentOrderMessage` na fila de ida
 2. `PaymentConsumerService` valida a mensagem
 3. `PaymentsService.processPayment` cria `Payment` com `status = pending`
 4. `FakePaymentGatewayService` simula latência e aprova (valor ≤ 10000 e sem sufixo `.99`)
 5. `Payment` é atualizado para `approved`, com `transactionId` e `processedAt`
-6. Consumer registra sucesso nas métricas
-7. `GET /payments/:orderId` retorna **200** com `status = approved`
+6. Payments publica `PaymentResultMessage` (`status = approved`) em `payment.result`
+7. Checkout consome a fila de resultado e atualiza a Order para `paid`
+8. Consumer registra sucesso nas métricas
+9. `GET /payments/:orderId` retorna **200** com `status = approved`
 
 ### Mensagem consumida — rejeição por limite
 
@@ -246,13 +313,17 @@ A resposta de `GET /payments/:orderId` (e o objeto persistido ao final de `proce
 2. Fluxo igual até a chamada ao gateway
 3. Gateway rejeita com `"Limite excedido"`
 4. `Payment` fica `rejected`, com `rejectionReason` e `processedAt`
-5. `GET /payments/:orderId` retorna **200** com `status = rejected` e o motivo
+5. Payments publica `PaymentResultMessage` (`status = rejected`)
+6. Checkout atualiza a Order para `failed`
+7. `GET /payments/:orderId` retorna **200** com `status = rejected` e o motivo
 
 ### Mensagem consumida — rejeição por sufixo .99
 
 1. Mensagem com valor terminando em `.99` e `amount ≤ 10000`
 2. Gateway rejeita com `"Cartão recusado pela operadora"`
 3. `Payment` fica `rejected` com o motivo correspondente
+4. Payments publica `PaymentResultMessage` (`status = rejected`)
+5. Checkout atualiza a Order para `failed`
 
 ### Mensagem inválida
 
@@ -321,7 +392,9 @@ payments/
 │   │   ├── payments.controller.ts        # GET /payments/:orderId
 │   │   └── payments.module.ts
 │   ├── events/
-│   │   ├── payment-consumer/             # passa a chamar PaymentsService
+│   │   ├── payment-consumer/             # processPayment + publish resultado
+│   │   ├── payment-result-queue/         # publica PaymentResultMessage
+│   │   ├── payment-result.interface.ts
 │   │   ├── dlq/                          # inalterado em contrato
 │   │   └── metrics/                      # inalterado em contrato
 │   ├── app.controller.ts / health        # GET /health
@@ -336,12 +409,12 @@ A organização interna de pastas/arquivos pode variar desde que as responsabili
 Esta spec **não** inclui:
 
 - Gateway de pagamento real (Stripe, PagSeguro, PayPal, etc.)
-- Webhook ou callback para notificar o `checkout-service` sobre aprovação/rejeição
-- Alteração de status da `Order` no checkout
+- Webhook **HTTP** (REST) do payments para o checkout — a notificação obrigatória é RabbitMQ (`PaymentResultMessage`)
+- Implementação do **consumer** da fila de resultado e da persistência do status da Order (responsabilidade do `checkout-service`; esta spec só exige o **publish** no payments)
 - Alteração dos endpoints existentes de DLQ (stats, reprocess, purge e correlatos)
 - Alteração dos endpoints existentes de métricas do consumer
 - Autenticação JWT / autorização por usuário na consulta de pagamento
-- Integração com api-gateway (proxy de `/payments/*`)
+- Integração com api-gateway (proxy de `/payments/*`) — coberta em spec/root à parte
 - Idempotência estrita por `orderId` (bloquear segunda criação); a consulta apenas resolve o registro mais recente quando houver mais de um
 - Estorno, captura parcial, parcelamento ou antifraude avançado
 - Dashboard financeiro ou relatórios agregados de pagamentos
@@ -369,10 +442,10 @@ Os critérios abaixo devem ser verificáveis de forma objetiva.
    `PaymentsService.processPayment` cria o registro `pending`, chama o gateway, atualiza status/`transactionId`/`rejectionReason`/`processedAt` e persiste o resultado final.
 
 7. **CA-07 — Consumer completo**  
-   Após validar a mensagem, `PaymentConsumerService` chama `PaymentsService.processPayment` (não permanece apenas no log/TODO).
+   Após validar a mensagem, `PaymentConsumerService` chama `PaymentsService.processPayment` e, em seguida, publica o resultado (RF-09).
 
 8. **CA-08 — Propagação de erro**  
-   Falha em `processPayment` continua propagando erro no consumer de forma que retry/DLQ existentes possam atuar.
+   Falha em `processPayment` ou na publicação do `PaymentResultMessage` continua propagando erro no consumer de forma que retry/DLQ existentes possam atuar.
 
 9. **CA-09 — GET /payments/:orderId sucesso**  
    Com pagamento existente, `GET /payments/:orderId` responde **200** com os campos mínimos do `Payment`.
@@ -389,8 +462,8 @@ Os critérios abaixo devem ser verificáveis de forma objetiva.
 13. **CA-13 — DLQ e métricas intactos**  
     Caminhos e comportamentos dos endpoints existentes de DLQ e de `GET /metrics` permanecem os mesmos desta entrega (sem regressão de contrato).
 
-14. **CA-14 — Sem gateway real / sem webhook**  
-    Não há integração com provedor real de pagamento nem notificação/webhook para o checkout-service.
+14. **CA-14 — Sem gateway real / sem webhook HTTP**  
+    Não há integração com provedor real de pagamento nem notificação REST para o checkout; a volta usa RabbitMQ.
 
 15. **CA-15 — Tipagem**  
     Funções, variáveis e parâmetros introduzidos nesta entrega estão tipados; não há uso injustificado de `any`.
@@ -401,7 +474,21 @@ Os critérios abaixo devem ser verificáveis de forma objetiva.
 17. **CA-17 — Fluxo ponta a ponta (rejeição)**  
     Uma mensagem válida com valor rejeitável (limite ou `.99`) resulta em `Payment` `rejected` com o `rejectionReason` correspondente, consultável via `GET /payments/:orderId`.
 
+18. **CA-18 — Contrato PaymentResultMessage**  
+    Existe o contrato tipado com os campos mínimos de RF-08.
+
+19. **CA-19 — Publish após Payment final**  
+    Após persistir `approved` ou `rejected`, o payments publica `PaymentResultMessage` em exchange/routing `payment.result`.
+
+20. **CA-20 — Canal de resultado separado**  
+    A publicação de resultado **não** reutiliza `payment_queue` / routing `payment.order`.
+
+21. **CA-21 — Falha de publish visível**  
+    Falha ao publicar o resultado é logada e propagada (sem apagar o Payment já salvo).
+
 ## Ordem sugerida de implementação
+
+### Entrega original (processamento)
 
 1. Criar a entidade `Payment` (enum de status + mapeamento TypeORM)  
 2. Implementar `FakePaymentGatewayService` com latência simulada e regras determinísticas  
@@ -410,9 +497,15 @@ Os critérios abaixo devem ser verificáveis de forma objetiva.
 5. Registrar o módulo de pagamentos e conectar o `PaymentConsumerService` a `processPayment`  
 6. Expor `GET /health`  
 7. Garantir tipagem explícita no fluxo  
-8. Cobrir os critérios de aceite com testes automatizados (unitário do gateway/regras e/ou e2e da consulta; consumer com dependências mockadas quando apropriado)  
-9. Validar manualmente: mensagem aprovável, rejeição por limite, rejeição por `.99`, 404 na consulta e health
+8. Cobrir os critérios de aceite com testes automatizados  
+
+### Evolução (callback assíncrono — RF-08 / RF-09)
+
+1. Definir o contrato `PaymentResultMessage`  
+2. Publicar o resultado após o Payment final (consumer / fila de resultado)  
+3. Validar publish em aprovação e rejeição; falha de publish propaga erro  
+4. Coordenar com o checkout-service o consumo de `order_payment_result_queue` e o update da Order (`paid` / `failed`) — detalhado na spec raiz `docs/specs/gateway-payments-integration-and-e2e.md`
 
 ## Commits
 
-Faça um único commit com tudo desta aula (spec). A implementação desta spec virá em entrega posterior, a partir do plano de implementação.
+Para a evolução do callback no payments: um commit por item (contrato → publisher / wiring no consumer), com lint antes de cada commit. A implementação correspondente no checkout segue a spec/root e o plano de implementação aprovado.
