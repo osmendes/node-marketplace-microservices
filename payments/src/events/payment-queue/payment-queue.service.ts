@@ -6,7 +6,7 @@ export class PaymentQueueService {
   private readonly logger = new Logger(PaymentQueueService.name);
 
   private readonly ROUTING_KEY = "payment.order";
-  private readonly EXCHANGE = "payments";
+  private readonly EXCHANGE = "payment";
   private readonly QUEUE_NAME = "payment_queue";
 
   constructor(private readonly rabbitMQService: RabbitmqService) {}
