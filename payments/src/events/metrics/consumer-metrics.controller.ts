@@ -14,9 +14,7 @@ export class ConsumerMetricsController {
     const metrics = this.paymentConsumerService.getMetrics();
 
     const successRate =
-      metrics.totalProcessed > 0
-        ? `${((metrics.totalSuccess / metrics.totalProcessed) * 100).toFixed(2)}%`
-        : "0%";
+      metrics.totalProcessed > 0 ? `${((metrics.totalSuccess / metrics.totalProcessed) * 100).toFixed(2)}%` : "0%";
 
     const uptime = this.calculateUptime(metrics.startedAt);
 
