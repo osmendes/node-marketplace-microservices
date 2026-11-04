@@ -49,13 +49,16 @@
     "@nestjs/schematics": "^11.0.0",
     "@nestjs/testing": "^11.0.1",
     "@types/bcryptjs": "^3.0.0",
+    "@types/better-sqlite3": "^9.6.0",
     "@types/express": "^5.0.0",
     "@types/node": "^24.0.0",
     "@types/passport-jwt": "^4",
     "@types/supertest": "^7.0.0",
     "@vitest/coverage-v8": "^4.1.7",
+    "better-sqlite3": "^13.0.3",
     "lefthook": "^2.1.9",
     "source-map-support": "^0.5.21",
+    "sqlite3": "^6.0.1",
     "supertest": "^7.0.0",
     "ts-loader": "^9.5.2",
     "ts-node": "^10.9.2",
@@ -69,6 +72,8 @@
   },
   "packageManager": "bun@1.4.2",
   "trustedDependencies": [
-    "@swc/core"
+    "@swc/core",
+    "better-sqlite3",
+    "sqlite3"
   ]
 }

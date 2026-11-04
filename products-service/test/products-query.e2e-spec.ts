@@ -1,12 +1,11 @@
-import { type INestApplication, ValidationPipe } from "@nestjs/common";
-import { Test, type TestingModule } from "@nestjs/testing";
+import type { INestApplication } from "@nestjs/common";
 import { getRepositoryToken } from "@nestjs/typeorm";
 import request from "supertest";
 import type { App } from "supertest/types";
 import type { Repository } from "typeorm";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
-import { AppModule } from "./../src/app.module";
 import { Product } from "./../src/products/entities/product.entity";
+import { createTestApp } from "./utils/create-test-app";
 
 describe("GET /products query endpoints (e2e)", () => {
   let app: INestApplication<App>;
@@ -18,20 +17,7 @@ describe("GET /products query endpoints (e2e)", () => {
   const sellerEmpty = "cccccccc-cccc-cccc-cccc-cccccccccccc";
 
   beforeEach(async () => {
-    const moduleFixture: TestingModule = await Test.createTestingModule({
-      imports: [AppModule],
-    }).compile();
-
-    app = moduleFixture.createNestApplication();
-    app.useGlobalPipes(
-      new ValidationPipe({
-        transform: true,
-        whitelist: true,
-        forbidNonWhitelisted: true,
-      }),
-    );
-    await app.init();
-
+    app = await createTestApp();
     productsRepository = app.get(getRepositoryToken(Product));
   });
 

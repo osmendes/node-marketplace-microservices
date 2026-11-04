@@ -1,12 +1,11 @@
 import { Controller, Get, type INestApplication, Req } from "@nestjs/common";
 import { JwtService } from "@nestjs/jwt";
-import { Test, type TestingModule } from "@nestjs/testing";
 import type { Request } from "express";
 import request from "supertest";
 import type { App } from "supertest/types";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
-import { AppModule } from "./../src/app.module";
 import type { AuthenticatedUser } from "./../src/auth/strategies/jwt.strategy";
+import { createTestApp } from "./utils/create-test-app";
 
 @Controller("__test")
 class ProtectedTestController {
@@ -21,14 +20,7 @@ describe("JWT guards (e2e)", () => {
   let jwtService: JwtService;
 
   beforeEach(async () => {
-    const moduleFixture: TestingModule = await Test.createTestingModule({
-      imports: [AppModule],
-      controllers: [ProtectedTestController],
-    }).compile();
-
-    app = moduleFixture.createNestApplication();
-    await app.init();
-
+    app = await createTestApp({ controllers: [ProtectedTestController] });
     jwtService = app.get(JwtService);
   });
 
