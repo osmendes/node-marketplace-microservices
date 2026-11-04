@@ -25,7 +25,10 @@ export class HealthController {
     return this.health.check([
       () => this.db.pingCheck("database"),
       () =>
-        this.microservice.pingCheck("rabbitmq", {
+        this.microservice.pingCheck<{
+          transport?: number;
+          options?: { urls: string[]; queue?: string };
+        }>("rabbitmq", {
           transport: Transport.RMQ,
           options: { urls: [rabbitmqUrl] },
         }),
