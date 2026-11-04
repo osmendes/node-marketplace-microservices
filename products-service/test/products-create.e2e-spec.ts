@@ -1,13 +1,12 @@
-import { type INestApplication, ValidationPipe } from "@nestjs/common";
+import type { INestApplication } from "@nestjs/common";
 import { JwtService } from "@nestjs/jwt";
-import { Test, type TestingModule } from "@nestjs/testing";
 import { getRepositoryToken } from "@nestjs/typeorm";
 import request from "supertest";
 import type { App } from "supertest/types";
 import type { Repository } from "typeorm";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
-import { AppModule } from "./../src/app.module";
 import { Product } from "./../src/products/entities/product.entity";
+import { createTestApp } from "./utils/create-test-app";
 
 describe("POST /products (e2e)", () => {
   let app: INestApplication<App>;
@@ -23,20 +22,7 @@ describe("POST /products (e2e)", () => {
   };
 
   beforeEach(async () => {
-    const moduleFixture: TestingModule = await Test.createTestingModule({
-      imports: [AppModule],
-    }).compile();
-
-    app = moduleFixture.createNestApplication();
-    app.useGlobalPipes(
-      new ValidationPipe({
-        transform: true,
-        whitelist: true,
-        forbidNonWhitelisted: true,
-      }),
-    );
-    await app.init();
-
+    app = await createTestApp();
     jwtService = app.get(JwtService);
     productsRepository = app.get(getRepositoryToken(Product));
   });

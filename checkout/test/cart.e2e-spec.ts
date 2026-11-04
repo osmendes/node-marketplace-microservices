@@ -1,15 +1,13 @@
-import { BadGatewayException, type INestApplication, NotFoundException, ValidationPipe } from "@nestjs/common";
+import { BadGatewayException, type INestApplication, NotFoundException } from "@nestjs/common";
 import { JwtService } from "@nestjs/jwt";
-import { Test, type TestingModule } from "@nestjs/testing";
 import { getRepositoryToken } from "@nestjs/typeorm";
 import request from "supertest";
 import type { App } from "supertest/types";
 import type { Repository } from "typeorm";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { AppModule } from "./../src/app.module";
 import { Cart, CartStatus } from "./../src/cart/entities/cart.entity";
 import { CartItem } from "./../src/cart/entities/cart-item.entity";
-import { ProductsClientService } from "./../src/products/products-client.service";
+import { createTestApp } from "./utils/create-test-app";
 
 describe("Cart management (e2e)", () => {
   let app: INestApplication<App>;
@@ -36,22 +34,7 @@ describe("Cart management (e2e)", () => {
       getProduct: vi.fn().mockResolvedValue(activeProduct),
     };
 
-    const moduleFixture: TestingModule = await Test.createTestingModule({
-      imports: [AppModule],
-    })
-      .overrideProvider(ProductsClientService)
-      .useValue(productsClient)
-      .compile();
-
-    app = moduleFixture.createNestApplication();
-    app.useGlobalPipes(
-      new ValidationPipe({
-        transform: true,
-        whitelist: true,
-        forbidNonWhitelisted: true,
-      }),
-    );
-    await app.init();
+    app = await createTestApp({ productsClient });
 
     jwtService = app.get(JwtService);
     cartRepository = app.get(getRepositoryToken(Cart));

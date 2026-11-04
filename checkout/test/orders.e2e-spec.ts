@@ -1,18 +1,15 @@
-import { type INestApplication, ValidationPipe } from "@nestjs/common";
+import type { INestApplication } from "@nestjs/common";
 import { JwtService } from "@nestjs/jwt";
-import { Test, type TestingModule } from "@nestjs/testing";
 import { getRepositoryToken } from "@nestjs/typeorm";
 import request from "supertest";
 import type { App } from "supertest/types";
 import type { Repository } from "typeorm";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { AppModule } from "./../src/app.module";
 import { Cart, CartStatus } from "./../src/cart/entities/cart.entity";
 import { CartItem } from "./../src/cart/entities/cart-item.entity";
-import { PaymentQueueService } from "./../src/events/payment-queue/payment-queue.service";
 import { Order, OrderStatus } from "./../src/orders/entities/order.entity";
 import { PaymentMethod } from "./../src/orders/enums/payment-method.enum";
-import { ProductsClientService } from "./../src/products/products-client.service";
+import { createTestApp } from "./utils/create-test-app";
 
 describe("Checkout and orders (e2e)", () => {
   let app: INestApplication<App>;
@@ -48,24 +45,7 @@ describe("Checkout and orders (e2e)", () => {
       publishPaymentOrderSafe: vi.fn().mockResolvedValue(undefined),
     };
 
-    const moduleFixture: TestingModule = await Test.createTestingModule({
-      imports: [AppModule],
-    })
-      .overrideProvider(ProductsClientService)
-      .useValue(productsClient)
-      .overrideProvider(PaymentQueueService)
-      .useValue(paymentQueue)
-      .compile();
-
-    app = moduleFixture.createNestApplication();
-    app.useGlobalPipes(
-      new ValidationPipe({
-        transform: true,
-        whitelist: true,
-        forbidNonWhitelisted: true,
-      }),
-    );
-    await app.init();
+    app = await createTestApp({ productsClient, paymentQueue });
 
     jwtService = app.get(JwtService);
     cartRepository = app.get(getRepositoryToken(Cart));
@@ -226,6 +206,11 @@ describe("Checkout and orders (e2e)", () => {
       .set("Authorization", `Bearer ${buyerToken}`)
       .send({ paymentMethod: PaymentMethod.PIX })
       .expect(201);
+
+    // SQLite datetime may share second precision; force distinct createdAt for ORDER BY DESC
+    await orderRepository.update(first.body.id, {
+      createdAt: new Date(Date.now() - 2000),
+    });
 
     await request(app.getHttpServer())
       .post("/cart/items")

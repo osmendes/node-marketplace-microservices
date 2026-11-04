@@ -1,12 +1,11 @@
-import { Controller, Get, type INestApplication, Req, ValidationPipe } from "@nestjs/common";
+import { Controller, Get, type INestApplication, Req } from "@nestjs/common";
 import { JwtService } from "@nestjs/jwt";
-import { Test, type TestingModule } from "@nestjs/testing";
 import type { Request } from "express";
 import request from "supertest";
 import type { App } from "supertest/types";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
-import { AppModule } from "./../src/app.module";
 import type { AuthenticatedUser } from "./../src/auth/strategies/jwt.strategy";
+import { createTestApp } from "./utils/create-test-app";
 
 @Controller("__test")
 class ProtectedTestController {
@@ -21,21 +20,7 @@ describe("JWT guards (e2e)", () => {
   let jwtService: JwtService;
 
   beforeEach(async () => {
-    const moduleFixture: TestingModule = await Test.createTestingModule({
-      imports: [AppModule],
-      controllers: [ProtectedTestController],
-    }).compile();
-
-    app = moduleFixture.createNestApplication();
-    app.useGlobalPipes(
-      new ValidationPipe({
-        transform: true,
-        whitelist: true,
-        forbidNonWhitelisted: true,
-      }),
-    );
-    await app.init();
-
+    app = await createTestApp({ controllers: [ProtectedTestController] });
     jwtService = app.get(JwtService);
   });
 
@@ -100,10 +85,7 @@ describe("JWT guards (e2e)", () => {
       })
       .expect(201);
 
-    await request(app.getHttpServer())
-      .post("/auth/login")
-      .send({ email, password: "secret1" })
-      .expect(200);
+    await request(app.getHttpServer()).post("/auth/login").send({ email, password: "secret1" }).expect(200);
   });
 
   it("GET /__test/protected returns 401 without token", async () => {
@@ -117,10 +99,7 @@ describe("JWT guards (e2e)", () => {
       role: "buyer",
     });
 
-    await request(app.getHttpServer())
-      .get("/__test/protected")
-      .set("Authorization", `Bearer ${forged}`)
-      .expect(401);
+    await request(app.getHttpServer()).get("/__test/protected").set("Authorization", `Bearer ${forged}`).expect(401);
   });
 
   it("GET /__test/protected returns 401 for expired token", async () => {
@@ -133,10 +112,7 @@ describe("JWT guards (e2e)", () => {
       { expiresIn: "-1s" },
     );
 
-    await request(app.getHttpServer())
-      .get("/__test/protected")
-      .set("Authorization", `Bearer ${expired}`)
-      .expect(401);
+    await request(app.getHttpServer()).get("/__test/protected").set("Authorization", `Bearer ${expired}`).expect(401);
   });
 
   it("GET /__test/protected returns 200 with req.user for valid token", async () => {
